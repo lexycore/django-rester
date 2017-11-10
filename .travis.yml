@@ -1,0 +1,23 @@
+language: python
+python: '3.5'
+branches:
+  only:
+  - master
+  - develop
+#services:
+#- redis-server
+#install:
+#- pip install redis coverage codacy-coverage
+#script:
+#- coverage run -m py.test tests
+#- coverage xml
+#- python-codacy-coverage -r coverage.xml
+deploy:
+  provider: pypi
+  user: lexycore
+  password:
+    secure:
+  distributions: sdist bdist_wheel
+  skip_cleanup: true
+  on:
+    all_branches: true
