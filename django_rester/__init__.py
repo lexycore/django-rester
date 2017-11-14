@@ -5,12 +5,13 @@ def package_defaults(application):
     DJANGO_RESTER = sys.modules['{}.settings'.format(application)].DJANGO_RESTER
     _settings = sys.modules['django.conf'].settings
     _settings_DJANGO_RESTER = getattr(_settings, 'DJANGO_RESTER', {})
+
     def compare_dicts(d1, d2):
         for k, v in d1.items():
             if not k in d2:
                 d2[k] = v
             else:
-                if type(d1[k]) is dict:
+                if isinstance(d1[k], dict):
                     compare_dicts(d1[k], d2[k])
         return d2
 

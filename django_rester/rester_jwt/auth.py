@@ -21,16 +21,17 @@ class BaseAuth:
         self._settings = getattr(settings, 'DJANGO_RESTER')
         self._username_field = self._settings.get('RESTER_LOGIN_FIELD')
         self._jwt_settings = self._settings.get('RESTER_JWT')
-        self._jwt_use_redis = self._jwt_settings.get('RESTER_USE_REDIS')
-        self._jwt_header = self._jwt_settings.get('RESTER_AUTH_HEADER')
-        self._jwt_payload_list = self._jwt_settings.get('RESTER_PAYLOAD_LIST')
-        self._jwt_token_prefix = self._jwt_settings.get('RESTER_AUTH_HEADER_PREFIX')
-        self._jwt_secret = self._jwt_settings.get('RESTER_SECRET')
-        self._jwt_algorithm = self._jwt_settings.get('RESTER_ALGORITHM')
+        self._jwt_use_redis = self._jwt_settings.get('JWT_USE_REDIS')
+        self._jwt_header = self._jwt_settings.get('JWT_AUTH_HEADER')
+        self._jwt_payload_list = self._jwt_settings.get('JWT_PAYLOAD_LIST')
+        self._jwt_token_prefix = self._jwt_settings.get('JWT_AUTH_HEADER_PREFIX')
+        self._jwt_secret = self._jwt_settings.get('JWT_SECRET')
+        self._jwt_algorithm = self._jwt_settings.get('JWT_ALGORITHM')
+        self._jwt_expiration_delta = self._jwt_settings.get('JWT_EXPIRATION_DELTA')
 
     def _set_payload(self, user) -> dict:
         exp = datetime.datetime.timestamp(
-            datetime.datetime.now() + self._jwt_settings.get('RESTER_EXPIRATION_DELTA', 0))
+            datetime.datetime.now() + self._jwt_expiration_delta)
         payload = {item: getattr(user, item, None) for item in self._jwt_payload_list if getattr(user, item, None) is not None}
         payload.update({"exp": exp})
         return payload
@@ -59,7 +60,7 @@ class BaseAuth:
     def _get_user(self, **kwargs):
         UserModel = get_user_model()
         user = UserModel.objects.get(**kwargs)
-        return user# if user.exists() else None
+        return user
 
     def _get_user_data(self, token):
         is_member, data, exp_date, user_data, user, messages = True, None, None, {}, None, []
@@ -123,6 +124,3 @@ class Auth(BaseAuth):
         if messages:
             user = None
         return user, messages
-
-    def register(self):
-        pass
