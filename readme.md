@@ -11,12 +11,13 @@ DEFAULT settings (may be overrided):
 ```python
 DJANGO_RESTER = {
     'RESTER_JWT': {
-        'RESTER_SECRET': 'secret_key',
-        'RESTER_EXPIRATION_DELTA': timedelta(seconds=60 * 60 * 24 * 14),
-        'RESTER_AUTH_HEADER': 'Authorization',
-        'RESTER_AUTH_HEADER_PREFIX': 'JWT',
-        'RESTER_ALGORITHM': 'HS256',
-        'RESTER_PAYLOAD_LIST': ['email'],
+        'JWT_SECRET': 'secret_key',
+        'JWT_EXPIRATION_DELTA': timedelta(seconds=60 * 60 * 24 * 14),
+        'JWT_AUTH_HEADER': 'Authorization',
+        'JWT_AUTH_HEADER_PREFIX': 'JWT',
+        'JWT_ALGORITHM': 'HS256',
+        'JWT_PAYLOAD_LIST': ['email'],
+        'JWT_USE_REDIS': False,
         },
     'RESTER_LOGIN_FIELD': 'username',
     'RESTER_AUTH_BACKEND': 'django_rester.jwt'
@@ -26,17 +27,19 @@ DJANGO_RESTER = {
 
 **JWT** - JWT authentication settings (in case of 'RESTER_AUTH_BACKEND' = 'django_rester.jwt')*:
 
-&nbsp;&nbsp;&nbsp;&nbsp; **RESTER_SECRET** - JWT secret key
+&nbsp;&nbsp;&nbsp;&nbsp; **JWT_SECRET** - JWT secret key
 
-&nbsp;&nbsp;&nbsp;&nbsp; **RESTER_EXPIRATION_DELTA** - token expiration time (datetime.now() + RESTER_EXPIRATION_DELTA)
+&nbsp;&nbsp;&nbsp;&nbsp; **JWT_EXPIRATION_DELTA** - token expiration time (datetime.now() + RESTER_EXPIRATION_DELTA)
 
-&nbsp;&nbsp;&nbsp;&nbsp; **RESTER_AUTH_HEADER** - HTTP headed, which will be used for auth token.
+&nbsp;&nbsp;&nbsp;&nbsp; **JWT_AUTH_HEADER** - HTTP headed, which will be used for auth token.
 
-&nbsp;&nbsp;&nbsp;&nbsp; **RESTER_AUTH_HEADER_PREFIX** - prefix for auth token ("Authorization:\<prefix> \<token>")
+&nbsp;&nbsp;&nbsp;&nbsp; **JWT_AUTH_HEADER_PREFIX** - prefix for auth token ("Authorization:\<prefix> \<token>")
 
-&nbsp;&nbsp;&nbsp;&nbsp; **RESTER_ALGORITHM** - cypher alghorithm
+&nbsp;&nbsp;&nbsp;&nbsp; **JWT_ALGORITHM** - cypher alghorithm
 
-&nbsp;&nbsp;&nbsp;&nbsp; **RESTER_PAYLOAD_LIST** - payload list for token encode (will take specified **user** attributes to create token)
+&nbsp;&nbsp;&nbsp;&nbsp; **JWT_PAYLOAD_LIST** - payload list for token encode (will take specified **user** attributes to create token)
+
+&nbsp;&nbsp;&nbsp;&nbsp; **JWT_USE_REDIS** - use redis-server to store tokens or not
 
 **RESTER_LOGIN_FIELD** - user login field (default is 'username' as in django)
 
@@ -161,7 +164,7 @@ class Example(BaseApiView):
 
 ```from django_rester.views import ...```
 <br><br><br>
-**class BaseApiView(View)****
+**class BaseApiView(View)**
 
 inherits from standard django view.
 
@@ -169,18 +172,15 @@ class attributes:
 
 &nbsp;&nbsp;&nbsp;&nbsp;**auth_class** - authentication class of current authentication backend
 
-&nbsp;&nbsp;&nbsp;&nbsp;**available_fields** - list, tuple of fields which could be processed as request parameters
+&nbsp;&nbsp;&nbsp;&nbsp;**request_fields** - request validator
 
-&nbsp;&nbsp;&nbsp;&nbsp;**required_fields** - list, tuple of fields which required to process request
-<br><br>
+<br>
 
 class HTTP methods (get, post, put, etc...) accepts next arguments: request, request_data, *args, **kwargs
 
 &nbsp;&nbsp;&nbsp;&nbsp;**request** - standard django view request object
 
 &nbsp;&nbsp;&nbsp;&nbsp;**request_data** - all received request parameters as json serialized object
-
-Automatic validation with [available_fields, required_fields, ...]***.
 
 User authentication with selected authentication backend
 <br><br><br>
@@ -208,10 +208,16 @@ from django_rester.exceptions import ResponseOkMessage
 from django_rester.permission import IsAdmin
 from django_rester.status import HTTP_200_OK
 from app.models import Model
+from django_rester.fields import JSONField
 
 class TestView(BaseAPIView):
-    available_fields = ['title']
-    required_fields = []
+
+    request_fields = {"POST": {
+        "id": JSONField(field_type=int, required=True, ),
+        "title": JSONField(field_type=str, required=True, default='some_title'),
+        "fk": [{"id": JSONField(field_type=int, required=True)}],
+    }}
+
 
     def retrieve_items():
         return Model.objects.all()
@@ -224,7 +230,7 @@ class TestView(BaseAPIView):
     @permissions(AllowAny)
     def get(self, request, request_data, *args, **kwargs):
         items = self.retrieve_items()
-        response_data = {...here we should build some response structure...}****
+        response_data = {...here we should build some response structure...}***
         return response_data, HTTP_200_OK
 
     @try_response
@@ -232,10 +238,11 @@ class TestView(BaseAPIView):
     def post(self, request, request_data, *args, **kwargs):
         title = request_data.get('title', None)
         # no need to check 'if title', because it is allready validated by 'available_fields'
+        # ... here we will do some view magic with the rest request_data
         item, cre = self.create_item(title)
         if not cre:
             raise ResponseOkMessage(message='Item allready exists', data={'title': title})
-        response_data = {...here we should build some response structure...}****
+        response_data = {...here we should build some response structure...}***
 
         return response_data
 ```
@@ -250,10 +257,34 @@ urlpatterns = [
 ]
 ```
 ***
+
+##### 7. built-in fields
+
+```from django_rester.fields import ...```
+<br><br><br>
+**class JSONField**
+
+class attributes:
+
+&nbsp;&nbsp;&nbsp;&nbsp;**field_type** - data type (int, float, str, bool)
+
+&nbsp;&nbsp;&nbsp;&nbsp;**required** - field is required
+
+&nbsp;&nbsp;&nbsp;&nbsp;**default** - default value if not specified
+
+&nbsp;&nbsp;&nbsp;&nbsp;**blank** - may or may not be blank
+
+&nbsp;&nbsp;&nbsp;&nbsp;**model** - model for foreign relations
+
+&nbsp;&nbsp;&nbsp;&nbsp;**field** - field for foreign relations
+
+methods:
+
+&nbsp;&nbsp;&nbsp;&nbsp;**validate** - validate field value with parameters
+***
+
 *- Right now only one authentication backend is available - JWT
 
 **- BaseApiView is on active development stage, other attributes and methods will be added soon
 
-***- this list will be extended in development process
-
-****- automatic response structure build - one of the nearest tasks
+***- automatic response structure build - one of the nearest tasks
