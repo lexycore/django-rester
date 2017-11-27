@@ -3,30 +3,26 @@ import json
 from django.http import HttpResponse
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
-from .decorators import try_response, permissions
+from .decorators import permissions
 from .permission import IsAuthenticated
 from .status import HTTP_200_OK, HTTP_500_INTERNAL_SERVER_ERROR, HTTP_400_BAD_REQUEST, HTTP_403_FORBIDDEN
-from django.conf import settings
-from .exceptions import RequestStructureException
-from .fields import JSONField
+from .exceptions import (
+    RequestStructureException,
+    ResponseError,
+    ResponseBadRequestMsgList,
+    ResponseOkMessage,
+    ResponseFailMessage,
+)
 
-rester_settings = getattr(settings, 'DJANGO_RESTER', None)
-auth_backend = rester_settings.get('RESTER_AUTH_BACKEND', None)
+from .fields import JSONField
+from .settings import rester_settings
+
+response_structure = rester_settings['RESPONSE_STRUCTURE']
 
 
 class BaseAPIView(View):
-    auth_class = auth_backend.Auth
+    auth = rester_settings['AUTH_BACKEND']()
     request_fields = {}
-
-    # @staticmethod
-    # def data_tuple_list(request_data):
-    #     request_data = request_data if isinstance(request_data, (list, tuple)) else []
-    #     return request_data if request_data != [] else False
-    #
-    # @staticmethod
-    # def data_dict(request_data):
-    #     request_data = request_data if isinstance(request_data, (dict)) else {}
-    #     return request_data
 
     @classmethod
     def as_view(cls, **kwargs):
@@ -61,51 +57,9 @@ class BaseAPIView(View):
             content_type = 'text/plain'
         return HttpResponse(pure_response, content_type=content_type, status=status)
 
-    # @staticmethod
-    # def validate(self, request_data: (list, dict), available_fields: list = None, required_fields: list = None):
     def _request_data_validate(self, method, request_data):
-
-        # def check_available(_item, fields):
-        #     _fields_ok = True
-        #     for key in _item.keys():
-        #         if key not in fields:
-        #             _fields_ok = False
-        #     return _fields_ok
-        #
-        # def check_required(_item, fields):
-        #     _fields_ok = True
-        #     for field in fields:
-        #         if field not in _item.keys():
-        #             _fields_ok = False
-        #     return _fields_ok
-        #
-        # def check_inner(_item):
-        #     _fields_ok = False
-        #     if required_fields and (len(_item) < len(required_fields)):
-        #         return False
-        #     if available_fields and request_data:
-        #         _fields_ok = check_available(_item, available_fields)
-        #     if required_fields and request_data and _fields_ok:
-        #         _fields_ok = check_required(_item, required_fields)
-        #     return _fields_ok
-        #
-        # fields_ok = False
-        # if type(request_data) == list:
-        #     for item in request_data:
-        #         fields_ok = check_inner(item)
-        #
-        # if type(request_data) == dict:
-        #     fields_ok = check_inner(request_data)
-        #
-        # if not required_fields and not available_fields:
-        #     fields_ok = True
-
-        # common request structure for all http methods or not
-        # common_structure = self._common_request_structure
-        # messages = []
-
         if self.request_fields == {}:
-            return request_data, None
+            return request_data, []
 
         if self._common_request_structure:
             request_structure = self.request_fields.get(method, None)
@@ -162,15 +116,14 @@ class BaseAPIView(View):
                 request_data = json.loads(json.dumps(request.GET)) if request.GET else {}
             elif method in ('POST', 'PUT', 'PATCH',):
                 request_data = json.loads(request.body.decode('utf-8')) if request.body else {}
-                # TODO maybe add some other checks
         return request_data
 
     def dispatch(self, request, *args, **kwargs):
         request_data = self._set_request_data(request)
         if not isinstance(request_data, (dict, list)):
             return self._set_response((['Request data is not json serializable'], HTTP_400_BAD_REQUEST))
-        self.auth = self.auth_class(request, request_data)
-        user, messages = self.auth.authenticate()
+        # auth = self.auth_class(request, request_data)
+        user, messages = self.auth.authenticate(request)
         if not messages and user:
             request.user = user
         request_data, messages_ = self._request_data_validate(request.method, request_data)
@@ -182,20 +135,61 @@ class BaseAPIView(View):
         else:
             handler = self.http_method_not_allowed
 
-        _response = handler(request, request_data, *args, **kwargs)
+        _response = self.try_response(handler, request, request_data, *args, **kwargs)
         return self._set_response(_response)
+
+    @staticmethod
+    def try_response(handler, request, request_data, *args, **kwargs):
+        message = []
+        success = None
+        data = None
+        try:
+            success = True
+            data = handler(request, request_data, *args, **kwargs)
+            response_status = HTTP_200_OK
+            if isinstance(data, tuple) and len(data) == 2:
+                response_status = data[1]
+                data = data[0]
+        except ResponseError as err:
+            response_status = err.response_status
+            if isinstance(err, ResponseBadRequestMsgList):
+                message = err.messages
+            elif isinstance(err, (ResponseOkMessage, ResponseFailMessage)):
+                response_status = err.response_status
+                message = err.message
+                data = err.data
+                success = isinstance(err, ResponseOkMessage)
+            else:
+                message = '{}'.format(err)
+        except Exception as err:
+            message = '{}'.format(err)
+            response_status = HTTP_500_INTERNAL_SERVER_ERROR
+        if success is not None:
+            success = 200 <= response_status <= 299
+        if response_structure:
+            res_data = {'success': success,
+                        'message': message,
+                        'data': data,
+                        }
+            str_data = dict(response_structure)
+            for item in str_data.keys():
+                if str_data[item] in res_data:
+                    str_data[item] = res_data[item]
+            content = (str_data, response_status)
+        else:
+            content = data, response_status
+
+        return content
 
 
 class Login(BaseAPIView):
-    @try_response()
     def post(self, request, request_data, *args, **kwargs):
-        data, status = self.auth.login()
+        data, status = self.auth.login(request, request_data)
         return data, status
 
 
 class Logout(BaseAPIView):
-    @try_response()
     @permissions(IsAuthenticated)
     def get(self, request, request_data):
-        data, status = self.auth.logout()
+        data, status = self.auth.logout(request, request_data)
         return data, status

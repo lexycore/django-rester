@@ -5,8 +5,10 @@ from .status import (
     HTTP_200_OK,
 )
 
+
 class ResterException(Exception):
     pass
+
 
 class ResponseError(ResterException):
     response_status = HTTP_500_INTERNAL_SERVER_ERROR
@@ -53,25 +55,31 @@ class JSONFieldError(ResterException):
     # base JSONField exception
     pass
 
+
 class JSONFieldModelTypeError(JSONFieldError):
     # JSONField exception, raises when type of model parameter in not valid
     pass
+
 
 class JSONFieldModelError(JSONFieldError):
     # JSONField exception, raises when value of model parameter in not valid
     pass
 
+
 class JSONFieldTypeError(JSONFieldError):
     # JSONField exception, simple TypeError inside JSONField class
     pass
+
 
 class JSONFieldValueError(JSONFieldError):
     # JSONField exception, simple ValueError inside JSONField class
     pass
 
+
 class BaseAPIViewException(Exception):
     # BaseAPIView exception class
     pass
+
 
 class RequestStructureException(BaseAPIViewException):
     # raises when request_data structure is not valid

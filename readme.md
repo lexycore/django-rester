@@ -1,3 +1,11 @@
+Django-Rediser
+==============
+
+[![build](https://travis-ci.org/lexycore/django-rester.svg?branch=master)](https://travis-ci.org/lexycore/django-rester)
+[![codacy](https://api.codacy.com/project/badge/Grade/dee291831b0b43158e2d2301726e2c00)](https://www.codacy.com/app/lexycore/django-rester/dashboard)
+[![pypi](https://img.shields.io/pypi/v/django-rester.svg)](https://pypi.python.org/pypi/django-rester)
+[![license](https://img.shields.io/pypi/l/django-rester.svg)](https://github.com/lexycore/django-rester/blob/master/LICENSE)
+
 ### Package for creating API with built-in validation and authentication
 
 This product is designed to build API endpoints of varying complexity and nesting.
@@ -7,52 +15,55 @@ The core is a view class - BaseApiView (the inheritor of the standard django vie
 ***
 ##### 1. settings
 
-DEFAULT settings (may be overrided):
+DEFAULT settings (may be overridden):
 ```python
 DJANGO_RESTER = {
-    'RESTER_JWT': {
-        'JWT_SECRET': 'secret_key',
-        'JWT_EXPIRATION_DELTA': timedelta(seconds=60 * 60 * 24 * 14),
-        'JWT_AUTH_HEADER': 'Authorization',
-        'JWT_AUTH_HEADER_PREFIX': 'JWT',
-        'JWT_ALGORITHM': 'HS256',
-        'JWT_PAYLOAD_LIST': ['email'],
-        'JWT_USE_REDIS': False,
-        },
-    'RESTER_LOGIN_FIELD': 'username',
-    'RESTER_AUTH_BACKEND': 'django_rester.jwt'
-    'RESTER_TRY_RESPONSE_STRUCTURE': False,
+    'LOGIN_FIELD': 'username',
+    'AUTH_BACKEND': 'django_rester.rester_jwt',
+    'RESPONSE_STRUCTURE': False,  # here can be a dict with 'success', 'message' and 'data' as a values
+}
+
+DJANGO_RESTER_JWT: {
+    'SECRET': 'secret_key',
+    'EXPIRE': 60 * 60 * 24 * 14,  # seconds
+    'AUTH_HEADER': 'Authorization',
+    'AUTH_HEADER_PREFIX': 'jwt',
+    'ALGORITHM': 'HS256',
+    'PAYLOAD_LIST': ['username'],
+    'USE_REDIS': False,  # here can be an int value (redis db number)
 }
 ```
 
-**JWT** - JWT authentication settings (in case of 'RESTER_AUTH_BACKEND' = 'django_rester.jwt')*:
+**DJANGO_RESTER** - django-rester settings:
 
-&nbsp;&nbsp;&nbsp;&nbsp; **JWT_SECRET** - JWT secret key
+&nbsp;&nbsp;&nbsp;&nbsp; **LOGIN_FIELD** - user login field (default is 'username' as in django)
 
-&nbsp;&nbsp;&nbsp;&nbsp; **JWT_EXPIRATION_DELTA** - token expiration time (datetime.now() + RESTER_EXPIRATION_DELTA)
+&nbsp;&nbsp;&nbsp;&nbsp; **AUTH_BACKEND** - authentication backend*
 
-&nbsp;&nbsp;&nbsp;&nbsp; **JWT_AUTH_HEADER** - HTTP headed, which will be used for auth token.
+&nbsp;&nbsp;&nbsp;&nbsp; **RESPONSE_STRUCTURE** - use or not @try_response() decorator by default.
 
-&nbsp;&nbsp;&nbsp;&nbsp; **JWT_AUTH_HEADER_PREFIX** - prefix for auth token ("Authorization:\<prefix> \<token>")
+**DJANGO_RESTER_JWT** - JWT authentication settings (in case of 'RESTER_AUTH_BACKEND' = 'django_rester.rester_jwt')*:
 
-&nbsp;&nbsp;&nbsp;&nbsp; **JWT_ALGORITHM** - cypher alghorithm
+&nbsp;&nbsp;&nbsp;&nbsp; **SECRET** - JWT secret key
 
-&nbsp;&nbsp;&nbsp;&nbsp; **JWT_PAYLOAD_LIST** - payload list for token encode (will take specified **user** attributes to create token)
+&nbsp;&nbsp;&nbsp;&nbsp; **EXPIRE** - token expiration time (datetime.now() + RESTER_EXPIRATION_DELTA)
 
-&nbsp;&nbsp;&nbsp;&nbsp; **JWT_USE_REDIS** - use redis-server to store tokens or not
+&nbsp;&nbsp;&nbsp;&nbsp; **AUTH_HEADER** - HTTP headed, which will be used for auth token.
 
-**RESTER_LOGIN_FIELD** - user login field (default is 'username' as in django)
+&nbsp;&nbsp;&nbsp;&nbsp; **AUTH_HEADER_PREFIX** - prefix for auth token ("Authorization:\<prefix> \<token>")
 
-**RESTER_AUTH_BACKEND** - authentication backend*
+&nbsp;&nbsp;&nbsp;&nbsp; **ALGORITHM** - cypher algorithm
 
-**RESTER_TRY_RESPONSE_STRUCTURE** - use or not @try_response() decorator by default.
+&nbsp;&nbsp;&nbsp;&nbsp; **PAYLOAD_LIST** - payload list for token encode (will take specified **user** attributes to create token)
+
+&nbsp;&nbsp;&nbsp;&nbsp; **USE_REDIS** - use redis-server to store tokens or not
 ***
 
 ##### 2. built-in statuses
 
 ```from django_rester.status import ...```
 <br><br><br>
-status.py from [DRF](http://www.django-rest-framework.org/), it's simple and easy to understand.
+slightly modified status.py from [DRF](http://www.django-rest-framework.org/), it's simple and easy to understand.
 
 Any statuses used in this documentation are described in that file.
 ***
@@ -99,7 +110,7 @@ you may use those exceptions to interact with **@try_response** decorator (good 
 
 &nbsp;&nbsp;&nbsp;&nbsp;messages could be list, tuple or string.
 ***
-##### 4. permisson classes
+##### 4. permission classes
 
 ```from django_rester.permission import ...```
 <br><br><br>
@@ -134,16 +145,6 @@ All permission classes has 2 attributes, defined on **init**:
 
 ```from django_rester.decorators import ...```
 <br><br><br>
-**@try_response(structure=True)**
-
-May be used to handle custom built-in exceptions and return structured data:
-
-&nbsp;&nbsp;&nbsp;&nbsp;**{"success": bool, "message": list, "data": dict}**
-
-to response handler.
-
-if **structure=False** then exeptions will be handled, but clean data and status will be returned
-<br><br><br>
 **@permissions()**
 
 &nbsp;&nbsp;&nbsp;&nbsp;accepts permission class or list, tuple of classes.
@@ -170,7 +171,7 @@ inherits from standard django view.
 
 class attributes:
 
-&nbsp;&nbsp;&nbsp;&nbsp;**auth_class** - authentication class of current authentication backend
+&nbsp;&nbsp;&nbsp;&nbsp;**auth** - authentication backend instance
 
 &nbsp;&nbsp;&nbsp;&nbsp;**request_fields** - request validator
 
@@ -203,7 +204,7 @@ Any view could be used the same way, here is a **simple example**:
 &nbsp;&nbsp;&nbsp;&nbsp;**app/views.py:**
 ```
 from django_rester.views import BaseAPIView
-from django_rester.decorators import try_response, permissions
+from django_rester.decorators import permissions
 from django_rester.exceptions import ResponseOkMessage
 from django_rester.permission import IsAdmin
 from django_rester.status import HTTP_200_OK
@@ -226,14 +227,12 @@ class TestView(BaseAPIView):
         item, cre = Model.objects.get_or_create(title=title)
         return item, cre
 
-    @try_response
     @permissions(AllowAny)
     def get(self, request, request_data, *args, **kwargs):
         items = self.retrieve_items()
         response_data = {...here we should build some response structure...}***
         return response_data, HTTP_200_OK
 
-    @try_response
     @permissions(IsAdmin)
     def post(self, request, request_data, *args, **kwargs):
         title = request_data.get('title', None)
@@ -283,8 +282,8 @@ methods:
 &nbsp;&nbsp;&nbsp;&nbsp;**validate** - validate field value with parameters
 ***
 
-*- Right now only one authentication backend is available - JWT
+*- There is only one authentication backend available for now - RESTER_JWT
 
-**- BaseApiView is on active development stage, other attributes and methods will be added soon
+**- BaseApiView is on active development stage, other attributes and methods could be added soon
 
 ***- automatic response structure build - one of the nearest tasks

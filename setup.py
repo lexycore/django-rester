@@ -28,18 +28,39 @@ if travis:
     with open('django_rester/config.py', 'w', encoding="utf-8") as f:
         f.write("__version__ = '{}'".format(version))
 
+try:
+    import pypandoc
+
+    print("Converting README...")
+    long_description = pypandoc.convert('README.md', 'rst')
+    if branch:
+        long_description = long_description.replace('django-rester.svg?branch=master', 'django-rester.svg?branch={}'.format(branch))
+
+except (IOError, ImportError, OSError):
+    print("Pandoc not found. Long_description conversion failure.")
+    with open('README.md', encoding="utf-8") as f:
+        long_description = f.read()
+else:
+    print("Saving README.rst...")
+    try:
+        if len(long_description) > 0:
+            with open('README.rst', 'w', encoding="utf-8") as f:
+                f.write(long_description)
+            if travis:
+                os.remove('README.md')
+    except:
+        print("  failed!")
 
 setup(
-    name='django_rester',
+    name='django-rester',
     version=version,
-    description='Django API builder',
+    description='Django REST API build helper',
     license='MIT',
     author='Sergei Kovalev',
     author_email='zili.tnd@gmail.com',
     url=url,
-    # long_description=long_description,
+    long_description=long_description,
     download_url='https://github.com/lexycore/django-rester.git',
-    # entry_points={'console_scripts': ['djedis=django_redis.__main__:main']},
     classifiers=[
         'Development Status :: {}'.format(develop_status),
         'Environment :: Console',
@@ -61,14 +82,18 @@ setup(
     ],
     packages=[
         'django_rester',
+        'django_rester.rester_jwt',
     ],
     setup_requires=[
         'wheel',
+        'pypandoc',
     ],
     tests_require=[
         'pytest',
     ],
     install_requires=[
+        'django',
+        'pyjwt',
         'django-rediser',
     ],
     package_data={

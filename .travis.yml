@@ -1,23 +1,23 @@
 language: python
 python: '3.5'
+addons:
+  apt_packages:
+  - pandoc
 branches:
   only:
   - master
   - develop
-#services:
-#- redis-server
-#install:
-#- pip install redis coverage codacy-coverage
-#script:
-#- coverage run -m py.test tests
-#- coverage xml
-#- python-codacy-coverage -r coverage.xml
+install:
+- pip install pypandoc django django-rediser pyjwt
 deploy:
   provider: pypi
   user: lexycore
   password:
-    secure:
+    secure: qd+aKe/UM4m+Ya3Xhtt0vsIIS6PWuNDcVPFb+Ur902ZZJ0yweD4dsgQcGWLy/dXIwAlrCuahVx4U9KPZXHa5M6pM1NwjHOhv5vTprZZAVML2qgeup/jm2ehJxwG3grK8nGaVwRNJsbSf6ac0BDK6igGfPZhwpHCzZtBvTuikHtmq6NXk/KHpUcWuHCJVBkJ6cZlmzU2a4+0zeg/yT99NNBvb3CBA3yB0Hd8VIGojDCS6fDUCvNJrTijdrfxT7DtWsJ3pJNmFt+XWMwyj8g9NF8SoT1fIfs0/6cLZnSrQx2ejvm2JnNOkf5w68T4tzHgmR3dtC/9sxhwv/zPFZ8Pdi9DdQzkrbHaD40/RNaus9AjrLYYMnPTmY7TvCvA4wvXIO8sGi2v6jKuzhfbZSlSpSbHRYYByXRsnrykBrb0dTsaVqxKUG8odBMbVxD2BJxUI4M8xjzoRb3eKt4VVHur9zNYS/GRdFGAjZ6Vh4ApCsrqHKw4xzsZcc/6zMHcZA6+uCVgPsh5rFmpgLK/K5jAQVvYg0YePCFLOmRvS6/pRZhNC1mYIy8rDRGPqN4jOc7hHEmAeoTJesbxhP4TO3PFjz9jooH9SLRSbQzmBGrjELHYom7xj9/zfn6XWhqxwed1zlXthC0avP/P86xQaQDRjNvWoxTW+ITh95y3EoSrj1O0=
   distributions: sdist bdist_wheel
   skip_cleanup: true
   on:
     all_branches: true
+env:
+  global:
+    secure: XHoNCfNSD7F3JuQgsyZTRFm89XO76YtyO+8djQwt/n1gutzR01a72aJoCcRAsZPOG8zhDXLmERU+xWIyhJ+L+ORso22TU58v+MkeDlmc1bHCLf6/ILntyrZYCgIhID9HmEKcHrsCATEunWYWLCDaYIPVgjizl5MENczmYyanwA1ll0/zbXmNOdlIURX09OanQ+9Fm/+69BmHByYmVV3hjYwjVQ5egq1FVIdlkA1M4uk5tdMuNTXwRpNnpGxgPETir1Mz/7Ehw5cSRh7bt+9OpNJssF7yOCt5goJvpwTJodYvQ3VM64rt+iNOXhYg0S4ARiO7Uiam58Bo8GzPGqUTg3DfLKWY0v1NeTmCjRTavtO7gHWcgO6RJXVfY5BEGmHOL8hkIvF0RXUJi1HazUMjNNLkTwQnZ6pHPSZpX3Od6ivcDSO294b7rjXWpmtdI0pgPV5FYc7gfme52OwFemJLrxvUsvql2yaHrnAccKns6AYXE+T2Z3GV9WCpNkzy7Gg7M4PjkBovqZQsdHlQJNLhbz0qI01X9aTiQ/9Yc2fKiRLtcSULD2VbqhHQw6udMvxuRSLzSCJ2LAMHdrI7XeIyVFGiCzqaW0U5JIV1pfg5brDJH/oZBkZKBAzhHxihReo8Je82we4QFvReYhhfyFKHO0YNZG0E7jLia2ObNhHAFRQ=
