@@ -8,7 +8,9 @@ branches:
   - master
   - develop
 install:
-- pip install pypandoc django django-rediser pyjwt
+- pip install pypandoc
+script:
+- echo "build and deploy"
 deploy:
   provider: pypi
   user: lexycore
