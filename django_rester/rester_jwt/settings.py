@@ -1,4 +1,5 @@
 import threading
+
 from django.conf import settings
 
 
@@ -40,7 +41,7 @@ class ResterSettings(dict):
         try:
             tmp = __import__('..settings', globals(), locals(), ['rester_settings'])
             result = getattr(tmp, 'rester_settings').get('LOGIN_FIELD', '')
-        except:
+        except (ImportError, AttributeError, TypeError, ValueError):
             result = ''
         return result or 'username'
 
