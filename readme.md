@@ -1,5 +1,5 @@
-Django-Rediser
-==============
+Django-Rester
+=============
 
 [![build](https://travis-ci.org/lexycore/django-rester.svg?branch=master)](https://travis-ci.org/lexycore/django-rester)
 [![codacy](https://api.codacy.com/project/badge/Grade/dee291831b0b43158e2d2301726e2c00)](https://www.codacy.com/app/lexycore/django-rester/dashboard)
