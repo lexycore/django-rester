@@ -60,14 +60,14 @@ class BaseAuth:
                 data = jwt.decode(token, rester_jwt_settings['SECRET'], algorithms=[rester_jwt_settings['ALGORITHM']])
             except jwt.DecodeError:
                 messages.append('Wrong authentication token')
+            except jwt.ExpiredSignatureError:
+                messages.append('Authentication token expired')
 
             if data:
                 exp_date = data.pop('exp', None)
                 user_data = {item: data.get(item, None) for item in rester_jwt_settings['PAYLOAD_LIST']}
             if exp_date and user_data and exp_date > datetime.datetime.now().timestamp():
                 user = self._get_user(**user_data)
-            else:
-                messages.append('Authentication token is expired')
         else:
             messages.append('Authentication token is not valid or expired')
 

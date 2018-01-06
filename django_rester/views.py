@@ -55,7 +55,10 @@ class BaseAPIView(View):
             pure_response = str(response)
             status = HTTP_500_INTERNAL_SERVER_ERROR
             content_type = 'text/plain'
-        return HttpResponse(pure_response, content_type=content_type, status=status)
+        result = HttpResponse(pure_response, content_type=content_type, status=status)
+        result['Access-Control-Allow-Origin'] = '*'
+        return result
+
 
     def _request_data_validate(self, method, request_data):
         if self.request_fields == {}:
@@ -112,6 +115,7 @@ class BaseAPIView(View):
         request_data = dict()
         method = request.method
         if method in self._allowed_methods():
+            # TODO try/ex
             if method == 'GET':
                 request_data = json.loads(json.dumps(request.GET)) if request.GET else {}
             elif method in ('POST', 'PUT', 'PATCH',):
@@ -120,26 +124,41 @@ class BaseAPIView(View):
 
     def dispatch(self, request, *args, **kwargs):
         request_data = self._set_request_data(request)
+        messages = []
+        _response = None
         if not isinstance(request_data, (dict, list)):
-            return self._set_response((['Request data is not json serializable'], HTTP_400_BAD_REQUEST))
-        # auth = self.auth_class(request, request_data)
-        user, messages = self.auth.authenticate(request)
-        if not messages and user:
-            request.user = user
-        request_data, messages_ = self._request_data_validate(request.method, request_data)
-        messages += messages_
+            messages = ['Request data is not json serializable']
+        if not messages:
+            user, messages = self.auth.authenticate(request)
+            if not messages and user:
+                request.user = user
+            request_data, messages_ = self._request_data_validate(request.method, request_data)
+            messages += messages_
+            method_name = request.method.lower()
+            if not messages:
+                if method_name in self.http_method_names:
+                    handler = getattr(self, method_name, self.http_method_not_allowed)
+                else:
+                    handler = self.http_method_not_allowed
+
+                if method_name in ('options',):
+                    _response = handler(request, request_data, *args, **kwargs)
+                else:
+                    _response = self.try_response(handler, request, request_data, *args, **kwargs)
+                    _response = self._set_response(_response)
         if messages:
-            return self._set_response((messages, HTTP_403_FORBIDDEN))
-        if request.method.lower() in self.http_method_names:
-            handler = getattr(self, request.method.lower(), self.http_method_not_allowed)
-        else:
-            handler = self.http_method_not_allowed
+            _response = self.set_response_structure(None, False, messages)
+            _response = self._set_response((_response, HTTP_400_BAD_REQUEST))
 
-        _response = self.try_response(handler, request, request_data, *args, **kwargs)
-        return self._set_response(_response)
+        return _response
 
-    @staticmethod
-    def try_response(handler, request, request_data, *args, **kwargs):
+    def options(self, request, *args, **kwargs):
+        result = super().options(request, *args, **kwargs)
+        result['Access-Control-Allow-Origin'] = '*'
+        result['Access-Control-Allow-Headers'] = 'Access-Control-Allow-Origin, Content-Type, Authorization'
+        return result
+
+    def try_response(self, handler, request, request_data, *args, **kwargs):
         message = []
         success = None
         data = None
@@ -166,20 +185,24 @@ class BaseAPIView(View):
             response_status = HTTP_500_INTERNAL_SERVER_ERROR
         if success is not None:
             success = 200 <= response_status <= 299
+        _response = self.set_response_structure(data, success, message)
+        return _response, response_status
+
+    @staticmethod
+    def set_response_structure(data, success=True, message=None):
         if response_structure:
             res_data = {'success': success,
-                        'message': message,
+                        'message': message or [],
                         'data': data,
                         }
             str_data = dict(response_structure)
             for item in str_data.keys():
                 if str_data[item] in res_data:
                     str_data[item] = res_data[item]
-            content = (str_data, response_status)
+            _response = str_data
         else:
-            content = data, response_status
-
-        return content
+            _response = data
+        return _response
 
 
 class Login(BaseAPIView):
