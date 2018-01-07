@@ -18,7 +18,7 @@ class ResterSettings(dict):
     def __init__(self):
         super().__init__()
         _django_rester_jwt_settings = getattr(settings, 'DJANGO_RESTER_JWT', {})
-        username = self.login_field
+        username = _django_rester_jwt_settings.get('LOGIN_FIELD', self.login_field)
         self.update({
             'SECRET': _django_rester_jwt_settings.get('SECRET', 'secret_key'),
             'EXPIRE': _django_rester_jwt_settings.get('EXPIRE', 60 * 60 * 24 * 14),
