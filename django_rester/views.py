@@ -1,4 +1,5 @@
 import json
+from json import JSONDecodeError
 
 from django.http import HttpResponse
 from django.views import View
@@ -111,22 +112,23 @@ class BaseAPIView(View):
         return value, messages
 
     def _set_request_data(self, request):
-        request_data = dict()
+        request_data, messages, message = None, [], 'Request data is not json serializable'
         method = request.method
         if method in self._allowed_methods():
-            # TODO try/ex
-            if method == 'GET':
-                request_data = json.loads(json.dumps(request.GET)) if request.GET else {}
-            elif method in ('POST', 'PUT', 'PATCH',):
-                request_data = json.loads(request.body.decode('utf-8')) if request.body else {}
-        return request_data
+            try:
+                if method == 'GET':
+                    request_data = json.loads(json.dumps(request.GET)) if request.GET else {}
+                elif method in ('POST', 'PUT', 'PATCH',):
+                    request_data = json.loads(request.body.decode('utf-8')) if request.body else {}
+                if not isinstance(request_data, (dict, list)):
+                    messages.append(message)
+            except JSONDecodeError:
+                messages.append(message)
+        return request_data, messages
 
     def dispatch(self, request, *args, **kwargs):
-        request_data = self._set_request_data(request)
-        messages = []
+        request_data, messages = self._set_request_data(request)
         _response = None
-        if not isinstance(request_data, (dict, list)):
-            messages = ['Request data is not json serializable']
         if not messages:
             user, messages = self.auth.authenticate(request)
             if not messages and user:
