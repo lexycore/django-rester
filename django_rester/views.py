@@ -194,7 +194,6 @@ class BaseAPIView(View):
         _response = self.set_response_structure(data, success, message)
         return _response, response_status
 
-    # @staticmethod
     def set_response_structure(self, data, success=True, message=None):
         if self.response_structure:
             res_data = {'success': success,
