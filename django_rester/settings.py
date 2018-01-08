@@ -38,6 +38,7 @@ class ResterSettings(dict):
         })
         self.update({'AUTH_BACKEND': self._get_auth_backend(_django_rester_settings.get('AUTH_BACKEND',
                                                                                         'django_rester.rester_jwt'))})
+        self.update({'CORS_ACCESS': False})  # True, False, "*", hosts_list
 
     @staticmethod
     def _set_response_structure(structure):

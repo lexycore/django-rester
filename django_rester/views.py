@@ -5,7 +5,7 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from .decorators import permissions
 from .permission import IsAuthenticated
-from .status import HTTP_200_OK, HTTP_500_INTERNAL_SERVER_ERROR, HTTP_400_BAD_REQUEST, HTTP_403_FORBIDDEN
+from .status import HTTP_200_OK, HTTP_500_INTERNAL_SERVER_ERROR, HTTP_400_BAD_REQUEST
 from .exceptions import (
     RequestStructureException,
     ResponseError,
@@ -17,12 +17,12 @@ from .exceptions import (
 from .fields import JSONField
 from .settings import rester_settings
 
-response_structure = rester_settings['RESPONSE_STRUCTURE']
-
 
 class BaseAPIView(View):
     auth = rester_settings['AUTH_BACKEND']()
     request_fields = {}
+    response_structure = rester_settings['RESPONSE_STRUCTURE']
+    cors_access = rester_settings['CORS_ACCESS']
 
     @classmethod
     def as_view(cls, **kwargs):
@@ -58,7 +58,6 @@ class BaseAPIView(View):
         result = HttpResponse(pure_response, content_type=content_type, status=status)
         result['Access-Control-Allow-Origin'] = '*'
         return result
-
 
     def _request_data_validate(self, method, request_data):
         if self.request_fields == {}:
@@ -154,8 +153,13 @@ class BaseAPIView(View):
 
     def options(self, request, *args, **kwargs):
         result = super().options(request, *args, **kwargs)
-        result['Access-Control-Allow-Origin'] = '*'
         result['Access-Control-Allow-Headers'] = 'Access-Control-Allow-Origin, Content-Type, Authorization'
+        if self.cors_access is True:
+            result['Access-Control-Allow-Origin'] = '*'
+        elif self.cors_access:
+            result['Access-Control-Allow-Origin'] = self.cors_access
+        else:
+            result['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
         return result
 
     def try_response(self, handler, request, request_data, *args, **kwargs):
@@ -188,14 +192,14 @@ class BaseAPIView(View):
         _response = self.set_response_structure(data, success, message)
         return _response, response_status
 
-    @staticmethod
-    def set_response_structure(data, success=True, message=None):
-        if response_structure:
+    # @staticmethod
+    def set_response_structure(self, data, success=True, message=None):
+        if self.response_structure:
             res_data = {'success': success,
                         'message': message or [],
                         'data': data,
                         }
-            str_data = dict(response_structure)
+            str_data = dict(self.response_structure)
             for item in str_data.keys():
                 if str_data[item] in res_data:
                     str_data[item] = res_data[item]
