@@ -13,6 +13,7 @@ from .exceptions import (
     ResponseBadRequestMsgList,
     ResponseOkMessage,
     ResponseFailMessage,
+    ResponseStructureException,
 )
 
 from .fields import JSONField
@@ -21,7 +22,7 @@ from .settings import rester_settings
 
 class BaseAPIView(View):
     auth = rester_settings['AUTH_BACKEND']()
-    request_fields = {}
+    request_fields, response_fields = {}, {}
     response_structure = rester_settings['RESPONSE_STRUCTURE']
     cors_access = rester_settings['CORS_ACCESS']
 
@@ -32,7 +33,7 @@ class BaseAPIView(View):
         return csrf_exempt(view)
 
     @property
-    def _common_request_structure(self):
+    def _common_request_response_structure(self):
         # check if request_fields are common to any http method or not
         common_structure = False
         for key in self.request_fields.keys():
@@ -41,8 +42,8 @@ class BaseAPIView(View):
                 break
         return common_structure
 
-    @staticmethod
-    def _set_response(_response):
+    # @staticmethod
+    def _set_response(self, _response):
         if isinstance(_response, tuple) and len(_response) == 2:
             response = _response[0]
             status = _response[1]
@@ -57,24 +58,49 @@ class BaseAPIView(View):
             status = HTTP_500_INTERNAL_SERVER_ERROR
             content_type = 'text/plain'
         result = HttpResponse(pure_response, content_type=content_type, status=status)
-        result['Access-Control-Allow-Origin'] = '*'
+        result = self._set_cors(result)
         return result
 
-    def _request_data_validate(self, method, request_data):
-        if self.request_fields == {}:
-            return request_data, []
+    # def _request_data_validate(self, method, request_data):
+    #     if self.request_fields == {}:
+    #         return request_data, []
+    #
+    #     if self._common_request_response_structure:
+    #         request_structure = self.request_fields.get(method, None)
+    #     else:
+    #         request_structure = self.request_fields
+    #
+    #     if not request_structure:
+    #         raise RequestStructureException(
+    #             'request data structure is not valid, check for documentation or leave blank')
+    #
+    #     request_data, messages = self._check_json_field(request_data, request_structure)
+    #     return request_data, messages
 
-        if self._common_request_structure:
-            request_structure = self.request_fields.get(method, None)
+    # def _response_data_validate(self, method, response_data):
+    #     if self.response_fields == {}:
+    #         return response_data, []
+    #     if self._common_request_response_structure:
+    #         response_structure = self.response_fields.get(method, None)
+    #     else:
+    #         response_structure = self.response_fields
+    #     if not response_structure:
+    #         raise RequestStructureException(
+    #             'response data structure is not valid, check for documentation or leave blank')
+    #     response_data, messages = self._check_json_field(response_data, response_structure)
+    #     return response_data, messages
+
+    def _data_validate(self, method, data, fields, exception, exception_message):
+        if fields == {}:
+            return data, []
+        if self._common_request_response_structure:
+            response_structure = fields.get(method, None)
         else:
-            request_structure = self.request_fields
-
-        if not request_structure:
-            raise RequestStructureException(
-                'request data structure is not valid, check for documentation or leave blank')
-
-        request_data, messages = self._check_json_field(request_data, request_structure)
-        return request_data, messages
+            response_structure = fields
+        if not response_structure:
+            raise exception(exception_message)
+        data, messages = self._check_json_field(data, response_structure)
+        return data, messages
 
     def _check_json_field(self, data, structure, key='', messages=None):
         # recursive function, validates request_data by request_fields
@@ -133,7 +159,10 @@ class BaseAPIView(View):
             user, messages = self.auth.authenticate(request)
             if not messages and user:
                 request.user = user
-            request_data, messages_ = self._request_data_validate(request.method, request_data)
+            # request_data, messages_ = self._request_data_validate(request.method, request_data)
+            request_data, messages_ = self._data_validate(
+                request.method, request_data, self.request_fields, RequestStructureException,
+                'request data structure is not valid, check for documentation or leave blank')
             messages += messages_
             method_name = request.method.lower()
             if not messages:
@@ -153,8 +182,7 @@ class BaseAPIView(View):
 
         return _response
 
-    def options(self, request, *args, **kwargs):
-        result = super().options(request, *args, **kwargs)
+    def _set_cors(self, result):
         result['Access-Control-Allow-Headers'] = 'Access-Control-Allow-Origin, Content-Type, Authorization'
         if self.cors_access is True:
             result['Access-Control-Allow-Origin'] = '*'
@@ -162,6 +190,11 @@ class BaseAPIView(View):
             result['Access-Control-Allow-Origin'] = self.cors_access
         else:
             result['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        return result
+
+    def options(self, request, *args, **kwargs):
+        result = super().options(request, *args, **kwargs)
+        result = self._set_cors(result)
         return result
 
     def try_response(self, handler, request, request_data, *args, **kwargs):
@@ -175,6 +208,9 @@ class BaseAPIView(View):
             if isinstance(data, tuple) and len(data) == 2:
                 response_status = data[1]
                 data = data[0]
+            # data, messages = self._response_data_validate(request.method, data)
+            data, messages = self._data_validate(request.method, data, self.response_fields, ResponseStructureException,
+                                                 'response data structure is not valid, check for documentation or leave blank')
         except ResponseError as err:
             response_status = err.response_status
             if isinstance(err, ResponseBadRequestMsgList):

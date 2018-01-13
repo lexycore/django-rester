@@ -116,6 +116,7 @@ STATIC_URL = '/static/'
 
 DJANGO_RESTER = {
     'RESPONSE_STRUCTURE': True,
+    'CORS_ACCESS': True,
 }
 
 DJANGO_RESTER_JWT = {
