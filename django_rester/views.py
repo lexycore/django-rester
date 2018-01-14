@@ -104,7 +104,7 @@ class BaseAPIView(View):
         structured_data, messages = self._check_json_field(data, structure)
         return data, messages
 
-    def _check_json_field(self, data, structure, key='', messages=None, data_type=None):
+    def _check_json_field(self, data, structure, key='', messages=None):
         # recursive function, validates request_data by request_fields
         value = None
         if messages is None:
