@@ -38,7 +38,10 @@ class ResterSettings(dict):
         })
         self.update({'AUTH_BACKEND': self._get_auth_backend(_django_rester_settings.get('AUTH_BACKEND',
                                                                                         'django_rester.rester_jwt'))})
-        self.update({'CORS_ACCESS': _django_rester_settings.get('CORS_ACCESS', False)})  # True, False, "*", hosts_string
+        self.update(
+            {'CORS_ACCESS': _django_rester_settings.get('CORS_ACCESS', False)})  # True, False, "*", hosts_string
+        self.update({'FIELDS_CHECK_EXCLUDED_METHODS': _django_rester_settings.get('FIELDS_CHECK_EXCLUDED_METHODS',
+                                                                                  ['OPTIONS', 'HEAD'])})
 
     @staticmethod
     def _set_response_structure(structure):

@@ -25,6 +25,7 @@ class BaseAPIView(View):
     request_fields, response_fields = {}, {}
     response_structure = rester_settings['RESPONSE_STRUCTURE']
     cors_access = rester_settings['CORS_ACCESS']
+    excluded_methods = rester_settings['FIELDS_CHECK_EXCLUDED_METHODS']
 
     @classmethod
     def as_view(cls, **kwargs):
@@ -97,7 +98,7 @@ class BaseAPIView(View):
             response_structure = fields.get(method, None)
         else:
             response_structure = fields
-        if not response_structure:
+        if not response_structure and method not in self.excluded_methods:
             raise exception(exception_message)
         data, messages = self._check_json_field(data, response_structure)
         return data, messages
@@ -144,8 +145,10 @@ class BaseAPIView(View):
             try:
                 if method == 'GET':
                     request_data = json.loads(json.dumps(request.GET)) if request.GET else {}
-                elif method in ('POST', 'PUT', 'PATCH',):
+                elif method in ('POST', 'PUT', 'PATCH'):
                     request_data = json.loads(request.body.decode('utf-8')) if request.body else {}
+                elif method in ('OPTIONS', 'HEAD'):
+                    request_data = {}
                 if not isinstance(request_data, (dict, list)):
                     messages.append(message)
             except JSONDecodeError:
@@ -171,6 +174,7 @@ class BaseAPIView(View):
                 else:
                     handler = self.http_method_not_allowed
 
+                # TODO refactor this somehow
                 if method_name in ('options',):
                     _response = handler(request, request_data, *args, **kwargs)
                 else:
