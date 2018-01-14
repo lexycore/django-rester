@@ -26,6 +26,7 @@ class BaseAPIView(View):
     response_structure = rester_settings['RESPONSE_STRUCTURE']
     cors_access = rester_settings['CORS_ACCESS']
     excluded_methods = rester_settings['FIELDS_CHECK_EXCLUDED_METHODS']
+    soft_response_validation = rester_settings['SOFT_RESPONSE_VALIDATION']
 
     @classmethod
     def as_view(cls, **kwargs):
@@ -95,15 +96,15 @@ class BaseAPIView(View):
         if fields == {}:
             return data, []
         if self._common_request_response_structure:
-            response_structure = fields.get(method, None)
+            structure = fields.get(method, None)
         else:
-            response_structure = fields
-        if not response_structure and method not in self.excluded_methods:
+            structure = fields
+        if not structure and method not in self.excluded_methods:
             raise exception(exception_message)
-        data, messages = self._check_json_field(data, response_structure)
+        structured_data, messages = self._check_json_field(data, structure)
         return data, messages
 
-    def _check_json_field(self, data, structure, key='', messages=None):
+    def _check_json_field(self, data, structure, key='', messages=None, data_type=None):
         # recursive function, validates request_data by request_fields
         value = None
         if messages is None:
@@ -135,7 +136,6 @@ class BaseAPIView(View):
                         value.append(val)
                     else:
                         messages += msg
-
         return value, messages
 
     def _set_request_data(self, request):

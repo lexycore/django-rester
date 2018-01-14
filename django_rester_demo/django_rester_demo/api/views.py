@@ -7,15 +7,17 @@ class TestView(BaseAPIView):
     request_fields = {"POST": {
         "id": JSONField(field_type=int, required=True, ),
         "title": JSONField(field_type=str, required=True, default='some_title'),
-        "fk": [{"id": JSONField(field_type=int, required=True)}]},
+        #"fk": [{"id": JSONField(field_type=int, required=True)}]}
+    },
         "GET": {"title": JSONField(field_type=str, required=True, default='some_title'),
                 }
     }
 
     response_fields = {"POST": {
-        "aid1fg": JSONField(field_type=int, required=True, ),
+        "id": JSONField(field_type=int, required=True, ),
         "title": JSONField(field_type=str, required=True, default='some_title'),
-        "fk": [{"id": JSONField(field_type=int, required=True)}]},
+        #"fk": [{"id": JSONField(field_type=int, required=True)}]}
+    },
         "GET": {"title": JSONField(field_type=str, required=True, default='some_title'),
                 }
     }

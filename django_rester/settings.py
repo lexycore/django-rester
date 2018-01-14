@@ -42,6 +42,8 @@ class ResterSettings(dict):
             {'CORS_ACCESS': _django_rester_settings.get('CORS_ACCESS', False)})  # True, False, "*", hosts_string
         self.update({'FIELDS_CHECK_EXCLUDED_METHODS': _django_rester_settings.get('FIELDS_CHECK_EXCLUDED_METHODS',
                                                                                   ['OPTIONS', 'HEAD'])})
+        self.update({'SOFT_RESPONSE_VALIDATION': _django_rester_settings.get('SOFT_RESPONSE_VALIDATION',
+                                                                             False)})
 
     @staticmethod
     def _set_response_structure(structure):
