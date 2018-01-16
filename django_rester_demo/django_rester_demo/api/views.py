@@ -7,7 +7,7 @@ class TestView(BaseAPIView):
     request_fields = {"POST": {
         "id": JSONField(field_type=int, required=True, ),
         "title": JSONField(field_type=str, required=True, default='some_title'),
-        #"fk": [{"id": JSONField(field_type=int, required=True)}]}
+        # "fk": [{"id": JSONField(field_type=int, required=True)}]}
     },
         "GET": {"title": JSONField(field_type=str, required=True, default='some_title'),
                 }
@@ -16,8 +16,8 @@ class TestView(BaseAPIView):
     response_fields = {"POST": {
         "id": JSONField(field_type=int, required=True, ),
         "title": JSONField(field_type=str, required=True, default='some_title'),
-        #"fk": [{"id": JSONField(field_type=int, required=True)}]}
-    },
+        "fk": [{"id": JSONField(field_type=int, required=True)}]},
+        # },
         "GET": {"title": JSONField(field_type=str, required=True, default='some_title'),
                 }
     }
@@ -26,5 +26,5 @@ class TestView(BaseAPIView):
         return request_data, HTTP_200_OK
 
     def post(self, request, request_data, *args, **kwargs):
-        response = {"id":1, "jk":'kj', "title":"kljkhjkj", "lkjljl":657,"fk":[{"id5":233}]}
+        response = {"id": "1", "jk": 'kj', "title": "kljkhjkj", "lkjljl": 657, "fk": [{"id": 233, "asd": 222}]}
         return response, HTTP_200_OK

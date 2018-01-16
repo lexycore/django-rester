@@ -46,7 +46,7 @@ class BaseAPIView(View):
 
     # @staticmethod
     def _set_response(self, _response):
-        if isinstance(_response, tuple) and len(_response) == 2:
+        if isinstance(_response, (list, tuple)) and len(_response) == 2:
             response = _response[0]
             status = _response[1]
         else:
@@ -102,7 +102,33 @@ class BaseAPIView(View):
         if not structure and method not in self.excluded_methods:
             raise exception(exception_message)
         structured_data, messages = self._check_json_field(data, structure)
-        return data, messages
+        if fields is self.response_fields and self.soft_response_validation:
+            structured_data = self._add_filtered_data(data, structured_data)
+        return structured_data, messages
+
+    def _add_filtered_data(self, data, structured_data):
+        # recursive function, validates response_data by response_fields
+        value = None
+        if isinstance(data, dict):
+            for data_key, data_value in data.items():
+                structured_value = structured_data.get(data_key, None)
+                correct_value = structured_value if structured_value else data_value
+                val = self._add_filtered_data(data.get(data_key, None), correct_value)
+                if val is not None:
+                    if value is None:
+                        value = {}
+                    value[data_key] = val
+
+        elif isinstance(data, (list, tuple)):
+            for item in data:
+                val = self._add_filtered_data(item, structured_data[0])
+                if val is not None:
+                    if value is None:
+                        value = []
+                    value.append(val)
+        else:
+            value = structured_data if structured_data else data
+        return value
 
     def _check_json_field(self, data, structure, key='', messages=None):
         # recursive function, validates request_data by request_fields
@@ -157,7 +183,7 @@ class BaseAPIView(View):
 
     def dispatch(self, request, *args, **kwargs):
         request_data, messages = self._set_request_data(request)
-        _response = None
+        _response, status = None, None
         if not messages:
             user, messages = self.auth.authenticate(request)
             if not messages and user:
@@ -166,6 +192,8 @@ class BaseAPIView(View):
             request_data, messages_ = self._data_validate(
                 request.method, request_data, self.request_fields, RequestStructureException,
                 'request data structure is not valid, check for documentation or leave blank')
+            if messages_:
+                messages_ = [{"request": messages_}]
             messages += messages_
             method_name = request.method.lower()
             if not messages:
@@ -178,12 +206,16 @@ class BaseAPIView(View):
                 if method_name in ('options',):
                     _response = handler(request, request_data, *args, **kwargs)
                 else:
-                    _response = self.try_response(handler, request, request_data, *args, **kwargs)
-                    _response = self._set_response(_response)
+                    _response = list(self.try_response(handler, request, request_data, *args, **kwargs))
+                    messages_ = _response.pop()
+                    if messages_:
+                        messages_ = [{"response": messages_}]
+                    messages = messages + messages_
         if messages:
             _response = self.set_response_structure(None, False, messages)
             _response = self._set_response((_response, HTTP_400_BAD_REQUEST))
-
+        else:
+            _response = self._set_response(_response)
         return _response
 
     def _set_cors(self, result):
@@ -203,6 +235,7 @@ class BaseAPIView(View):
 
     def try_response(self, handler, request, request_data, *args, **kwargs):
         message = []
+        messages = []
         success = None
         data = None
         try:
@@ -232,7 +265,7 @@ class BaseAPIView(View):
         if success is not None:
             success = 200 <= response_status <= 299
         _response = self.set_response_structure(data, success, message)
-        return _response, response_status
+        return _response, response_status, messages
 
     def set_response_structure(self, data, success=True, message=None):
         if self.response_structure:
