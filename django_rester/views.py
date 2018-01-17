@@ -44,7 +44,6 @@ class BaseAPIView(View):
                 break
         return common_structure
 
-    # @staticmethod
     def _set_response(self, _response):
         if isinstance(_response, (list, tuple)) and len(_response) == 2:
             response = _response[0]
@@ -62,35 +61,6 @@ class BaseAPIView(View):
         result = HttpResponse(pure_response, content_type=content_type, status=status)
         result = self._set_cors(result)
         return result
-
-    # def _request_data_validate(self, method, request_data):
-    #     if self.request_fields == {}:
-    #         return request_data, []
-    #
-    #     if self._common_request_response_structure:
-    #         request_structure = self.request_fields.get(method, None)
-    #     else:
-    #         request_structure = self.request_fields
-    #
-    #     if not request_structure:
-    #         raise RequestStructureException(
-    #             'request data structure is not valid, check for documentation or leave blank')
-    #
-    #     request_data, messages = self._check_json_field(request_data, request_structure)
-    #     return request_data, messages
-
-    # def _response_data_validate(self, method, response_data):
-    #     if self.response_fields == {}:
-    #         return response_data, []
-    #     if self._common_request_response_structure:
-    #         response_structure = self.response_fields.get(method, None)
-    #     else:
-    #         response_structure = self.response_fields
-    #     if not response_structure:
-    #         raise RequestStructureException(
-    #             'response data structure is not valid, check for documentation or leave blank')
-    #     response_data, messages = self._check_json_field(response_data, response_structure)
-    #     return response_data, messages
 
     def _data_validate(self, method, data, fields, exception, exception_message):
         if fields == {}:
@@ -188,7 +158,6 @@ class BaseAPIView(View):
             user, messages = self.auth.authenticate(request)
             if not messages and user:
                 request.user = user
-            # request_data, messages_ = self._request_data_validate(request.method, request_data)
             request_data, messages_ = self._data_validate(
                 request.method, request_data, self.request_fields, RequestStructureException,
                 'request data structure is not valid, check for documentation or leave blank')
@@ -245,7 +214,6 @@ class BaseAPIView(View):
             if isinstance(data, tuple) and len(data) == 2:
                 response_status = data[1]
                 data = data[0]
-            # data, messages = self._response_data_validate(request.method, data)
             data, messages = self._data_validate(request.method, data, self.response_fields, ResponseStructureException,
                                                  'response data structure is not valid, check for documentation or leave blank')
         except ResponseError as err:
