@@ -1,28 +1,32 @@
 import json
+from json import JSONDecodeError
 
 from django.http import HttpResponse
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from .decorators import permissions
 from .permission import IsAuthenticated
-from .status import HTTP_200_OK, HTTP_500_INTERNAL_SERVER_ERROR, HTTP_400_BAD_REQUEST, HTTP_403_FORBIDDEN
+from .status import HTTP_200_OK, HTTP_500_INTERNAL_SERVER_ERROR, HTTP_400_BAD_REQUEST
 from .exceptions import (
     RequestStructureException,
     ResponseError,
     ResponseBadRequestMsgList,
     ResponseOkMessage,
     ResponseFailMessage,
+    ResponseStructureException,
 )
 
 from .fields import JSONField
 from .settings import rester_settings
 
-response_structure = rester_settings['RESPONSE_STRUCTURE']
-
 
 class BaseAPIView(View):
     auth = rester_settings['AUTH_BACKEND']()
-    request_fields = {}
+    request_fields, response_fields = {}, {}
+    _response_structure = rester_settings['RESPONSE_STRUCTURE']
+    _cors_access = rester_settings['CORS_ACCESS']
+    _excluded_methods = rester_settings['FIELDS_CHECK_EXCLUDED_METHODS']
+    _soft_response_validation = rester_settings['SOFT_RESPONSE_VALIDATION']
 
     @classmethod
     def as_view(cls, **kwargs):
@@ -31,7 +35,7 @@ class BaseAPIView(View):
         return csrf_exempt(view)
 
     @property
-    def _common_request_structure(self):
+    def _common_request_response_structure(self):
         # check if request_fields are common to any http method or not
         common_structure = False
         for key in self.request_fields.keys():
@@ -40,9 +44,8 @@ class BaseAPIView(View):
                 break
         return common_structure
 
-    @staticmethod
-    def _set_response(_response):
-        if isinstance(_response, tuple) and len(_response) == 2:
+    def _set_response(self, _response):
+        if isinstance(_response, (list, tuple)) and len(_response) == 2:
             response = _response[0]
             status = _response[1]
         else:
@@ -56,25 +59,46 @@ class BaseAPIView(View):
             status = HTTP_500_INTERNAL_SERVER_ERROR
             content_type = 'text/plain'
         result = HttpResponse(pure_response, content_type=content_type, status=status)
-        result['Access-Control-Allow-Origin'] = '*'
+        result = self._set_cors(result)
         return result
 
-
-    def _request_data_validate(self, method, request_data):
-        if self.request_fields == {}:
-            return request_data, []
-
-        if self._common_request_structure:
-            request_structure = self.request_fields.get(method, None)
+    def _data_validate(self, method, data, fields, exception, exception_message):
+        if fields == {}:
+            return data, []
+        if self._common_request_response_structure:
+            structure = fields.get(method, None)
         else:
-            request_structure = self.request_fields
+            structure = fields
+        if not structure and method not in self._excluded_methods:
+            raise exception(exception_message)
+        structured_data, messages = self._check_json_field(data, structure)
+        if fields is self.response_fields and self._soft_response_validation:
+            structured_data = self._add_filtered_data(data, structured_data)
+        return structured_data, messages
 
-        if not request_structure:
-            raise RequestStructureException(
-                'request data structure is not valid, check for documentation or leave blank')
+    def _add_filtered_data(self, data, structured_data):
+        # recursive function, validates response_data by response_fields
+        value = None
+        if isinstance(data, dict):
+            for data_key, data_value in data.items():
+                structured_value = structured_data.get(data_key, None)
+                correct_value = structured_value if structured_value else data_value
+                val = self._add_filtered_data(data.get(data_key, None), correct_value)
+                if val is not None:
+                    if value is None:
+                        value = {}
+                    value[data_key] = val
 
-        request_data, messages = self._check_json_field(request_data, request_structure)
-        return request_data, messages
+        elif isinstance(data, (list, tuple)):
+            for item in data:
+                val = self._add_filtered_data(item, structured_data[0])
+                if val is not None:
+                    if value is None:
+                        value = []
+                    value.append(val)
+        else:
+            value = structured_data if structured_data else data
+        return value
 
     def _check_json_field(self, data, structure, key='', messages=None):
         # recursive function, validates request_data by request_fields
@@ -108,31 +132,37 @@ class BaseAPIView(View):
                         value.append(val)
                     else:
                         messages += msg
-
         return value, messages
 
     def _set_request_data(self, request):
-        request_data = dict()
+        request_data, messages, message = None, [], 'Request data is not json serializable'
         method = request.method
         if method in self._allowed_methods():
-            # TODO try/ex
-            if method == 'GET':
-                request_data = json.loads(json.dumps(request.GET)) if request.GET else {}
-            elif method in ('POST', 'PUT', 'PATCH',):
-                request_data = json.loads(request.body.decode('utf-8')) if request.body else {}
-        return request_data
+            try:
+                if method == 'GET':
+                    request_data = json.loads(json.dumps(request.GET)) if request.GET else {}
+                elif method in ('POST', 'PUT', 'PATCH'):
+                    request_data = json.loads(request.body.decode('utf-8')) if request.body else {}
+                elif method in ('OPTIONS', 'HEAD'):
+                    request_data = {}
+                if not isinstance(request_data, (dict, list)):
+                    messages.append(message)
+            except JSONDecodeError:
+                messages.append(message)
+        return request_data, messages
 
     def dispatch(self, request, *args, **kwargs):
-        request_data = self._set_request_data(request)
-        messages = []
-        _response = None
-        if not isinstance(request_data, (dict, list)):
-            messages = ['Request data is not json serializable']
+        request_data, messages = self._set_request_data(request)
+        _response, status = None, None
         if not messages:
             user, messages = self.auth.authenticate(request)
             if not messages and user:
                 request.user = user
-            request_data, messages_ = self._request_data_validate(request.method, request_data)
+            request_data, messages_ = self._data_validate(
+                request.method, request_data, self.request_fields, RequestStructureException,
+                'request data structure is not valid, check for documentation or leave blank')
+            if messages_:
+                messages_ = [{"request": messages_}]
             messages += messages_
             method_name = request.method.lower()
             if not messages:
@@ -141,25 +171,40 @@ class BaseAPIView(View):
                 else:
                     handler = self.http_method_not_allowed
 
+                # TODO refactor this somehow
                 if method_name in ('options',):
                     _response = handler(request, request_data, *args, **kwargs)
                 else:
-                    _response = self.try_response(handler, request, request_data, *args, **kwargs)
-                    _response = self._set_response(_response)
+                    _response = list(self.try_response(handler, request, request_data, *args, **kwargs))
+                    messages_ = _response.pop()
+                    if messages_:
+                        messages_ = [{"response": messages_}]
+                    messages = messages + messages_
         if messages:
             _response = self.set_response_structure(None, False, messages)
             _response = self._set_response((_response, HTTP_400_BAD_REQUEST))
-
+        else:
+            _response = self._set_response(_response)
         return _response
+
+    def _set_cors(self, result):
+        result['Access-Control-Allow-Headers'] = 'Access-Control-Allow-Origin, Content-Type, Authorization'
+        if self._cors_access is True:
+            result['Access-Control-Allow-Origin'] = '*'
+        elif self._cors_access:
+            result['Access-Control-Allow-Origin'] = self._cors_access
+        else:
+            result['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        return result
 
     def options(self, request, *args, **kwargs):
         result = super().options(request, *args, **kwargs)
-        result['Access-Control-Allow-Origin'] = '*'
-        result['Access-Control-Allow-Headers'] = 'Access-Control-Allow-Origin, Content-Type, Authorization'
+        result = self._set_cors(result)
         return result
 
     def try_response(self, handler, request, request_data, *args, **kwargs):
         message = []
+        messages = []
         success = None
         data = None
         try:
@@ -169,6 +214,8 @@ class BaseAPIView(View):
             if isinstance(data, tuple) and len(data) == 2:
                 response_status = data[1]
                 data = data[0]
+            data, messages = self._data_validate(request.method, data, self.response_fields, ResponseStructureException,
+                                                 'response data structure is not valid, check for documentation or leave blank')
         except ResponseError as err:
             response_status = err.response_status
             if isinstance(err, ResponseBadRequestMsgList):
@@ -186,16 +233,15 @@ class BaseAPIView(View):
         if success is not None:
             success = 200 <= response_status <= 299
         _response = self.set_response_structure(data, success, message)
-        return _response, response_status
+        return _response, response_status, messages
 
-    @staticmethod
-    def set_response_structure(data, success=True, message=None):
-        if response_structure:
+    def set_response_structure(self, data, success=True, message=None):
+        if self._response_structure:
             res_data = {'success': success,
                         'message': message or [],
                         'data': data,
                         }
-            str_data = dict(response_structure)
+            str_data = dict(self._response_structure)
             for item in str_data.keys():
                 if str_data[item] in res_data:
                     str_data[item] = res_data[item]
