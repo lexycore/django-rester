@@ -54,17 +54,6 @@ class JSONField:
             messages += msg
         return value, messages
 
-    # def check_type(self, key):
-    #     # Check if instance type is valid, try to convert to specified type, error if can't be done
-    #     if self.field_type:
-    #         try:
-    #             new_key = self.field_type(key)
-    #         except (TypeError, ValueError):
-    #             raise JSONFieldTypeError('{} type is not {} and cannot be converted'.format(key, str(self.field_type)))
-    #         return new_key
-    #     else:
-    #         return key
-
     @staticmethod
     def _set_model(model):
         if not model:

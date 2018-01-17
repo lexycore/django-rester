@@ -13,14 +13,23 @@ This product is designed to build API endpoints of varying complexity and nestin
 The core is a view class - BaseApiView (the inheritor of the standard django view)
 
 ***
-##### 1. settings
+##### 1. requirements
+
+1. Python 3+
+
+2. Django 1.11+
+
+***
+##### 2. settings
 
 DEFAULT settings (may be overridden):
 ```python
 DJANGO_RESTER = {
-    'LOGIN_FIELD': 'username',
-    'AUTH_BACKEND': 'django_rester.rester_jwt',
-    'RESPONSE_STRUCTURE': False,  # here can be a dict with 'success', 'message' and 'data' as a values
+    'AUTH_BACKEND': 'django_rester.rester_jwt', 
+    'RESPONSE_STRUCTURE': False,
+    'CORS_ACCESS': False,
+    'FIELDS_CHECK_EXCLUDED_METHODS': ['OPTIONS', 'HEAD'],
+    'SOFT_RESPONSE_VALIDATION': False, 
 }
 
 DJANGO_RESTER_JWT: {
@@ -31,16 +40,21 @@ DJANGO_RESTER_JWT: {
     'ALGORITHM': 'HS256',
     'PAYLOAD_LIST': ['username'],
     'USE_REDIS': False,  # here can be an int value (redis db number)
+    'LOGIN_FIELD': 'username', # as default django login field
 }
 ```
 
 **DJANGO_RESTER** - django-rester settings:
 
-&nbsp;&nbsp;&nbsp;&nbsp; **LOGIN_FIELD** - user login field (default is 'username' as in django)
-
 &nbsp;&nbsp;&nbsp;&nbsp; **AUTH_BACKEND** - authentication backend*
 
-&nbsp;&nbsp;&nbsp;&nbsp; **RESPONSE_STRUCTURE** - use or not @try_response() decorator by default.
+&nbsp;&nbsp;&nbsp;&nbsp; **RESPONSE_STRUCTURE** - False or can be a dict with 'success', 'message' and 'data' as a values
+
+&nbsp;&nbsp;&nbsp;&nbsp; **CORS_ACCESS** - CORS control, True, False, "*", hosts_string
+
+&nbsp;&nbsp;&nbsp;&nbsp; **FIELDS_CHECK_EXCLUDED_METHODS** - methods, which will not be processed with body structure checks 
+
+&nbsp;&nbsp;&nbsp;&nbsp; **SOFT_RESPONSE_VALIDATION** - if True, response will not be cut off if it will contain additional to response_structure fields 
 
 **DJANGO_RESTER_JWT** - JWT authentication settings (in case of 'RESTER_AUTH_BACKEND' = 'django_rester.rester_jwt')*:
 
@@ -57,9 +71,11 @@ DJANGO_RESTER_JWT: {
 &nbsp;&nbsp;&nbsp;&nbsp; **PAYLOAD_LIST** - payload list for token encode (will take specified **user** attributes to create token)
 
 &nbsp;&nbsp;&nbsp;&nbsp; **USE_REDIS** - use redis-server to store tokens or not
+
+&nbsp;&nbsp;&nbsp;&nbsp; **LOGIN_FIELD** - user login field (default is 'username' as in django)
 ***
 
-##### 2. built-in statuses
+##### 3. built-in statuses
 
 ```from django_rester.status import ...```
 <br><br><br>
@@ -67,16 +83,20 @@ slightly modified status.py from [DRF](http://www.django-rest-framework.org/), i
 
 Any statuses used in this documentation are described in that file.
 ***
-##### 3. built-in exceptions:
+##### 4. built-in exceptions:
 
 
 ```from django_rester.exceptions import ...```
 <br><br><br>
-you may use those exceptions to interact with **@try_response** decorator (good example of usage), or in any other way you want
+Exceptions, which will help you to recognise errors related to django-rester
+
+**class ResterException(Exception)**
+
+&nbsp;&nbsp;&nbsp;&nbsp;base django-rester exception, standard Exception inheritor
 
 **class ResponseError(Exception)**
 
-&nbsp;&nbsp;&nbsp;&nbsp;base exception class, standard Exception inheritor, added response status - HTTP_500_INTERNAL_SERVER_ERROR
+&nbsp;&nbsp;&nbsp;&nbsp;ResponseError inheritor, added response status - HTTP_500_INTERNAL_SERVER_ERROR
 
 **class ResponseBadRequest(ResponseError)**
 
@@ -109,8 +129,40 @@ you may use those exceptions to interact with **@try_response** decorator (good 
 &nbsp;&nbsp;&nbsp;&nbsp;acceptable arguments: *, messages=None, status=HTTP_400_BAD_REQUEST
 
 &nbsp;&nbsp;&nbsp;&nbsp;messages could be list, tuple or string.
+
+**class JSONFieldError(ResterException)**
+
+&nbsp;&nbsp;&nbsp;&nbsp;ResterException inheritor, base JSONField exception
+
+**class JSONFieldModelTypeError(JSONFieldError)**
+
+&nbsp;&nbsp;&nbsp;&nbsp;JSONField exception, raises when type of model parameter is not valid
+
+**class JSONFieldModelError(JSONFieldError)**
+
+&nbsp;&nbsp;&nbsp;&nbsp;JSONField exception, raises when value of model parameter is not valid
+
+**class JSONFieldTypeError(JSONFieldError)**
+
+&nbsp;&nbsp;&nbsp;&nbsp;JSONField exception, simple TypeError inside JSONField class
+
+**class JSONFieldValueError(JSONFieldError)**
+
+&nbsp;&nbsp;&nbsp;&nbsp;JSONField exception, simple ValueError inside JSONField class
+
+**class BaseAPIViewException(Exception)**
+
+&nbsp;&nbsp;&nbsp;&nbsp;BaseAPIView exception class
+
+**class RequestStructureException(BaseAPIViewException)**
+
+&nbsp;&nbsp;&nbsp;&nbsp;raise if request structure is invalid
+
+**class ResponseStructureException(RequestStructureException)**
+
+&nbsp;&nbsp;&nbsp;&nbsp;raise if response structure is invalid
 ***
-##### 4. permission classes
+##### 5. permission classes
 
 ```from django_rester.permission import ...```
 <br><br><br>
@@ -141,7 +193,7 @@ All permission classes has 2 attributes, defined on **init**:
 &nbsp;&nbsp;&nbsp;&nbsp;check = **True** for any user (even anonymous)
 
 ***
-##### 5. built-in decorators
+##### 6. built-in decorators
 
 ```from django_rester.decorators import ...```
 <br><br><br>
@@ -161,7 +213,7 @@ class Example(BaseApiView):
 ```
 ***
 
-##### 6. built-in views
+##### 7. built-in views
 
 ```from django_rester.views import ...```
 <br><br><br>
@@ -173,7 +225,9 @@ class attributes:
 
 &nbsp;&nbsp;&nbsp;&nbsp;**auth** - authentication backend instance
 
-&nbsp;&nbsp;&nbsp;&nbsp;**request_fields** - request validator
+&nbsp;&nbsp;&nbsp;&nbsp;**request_fields** - request validator (use JSONField to build this validator)
+
+&nbsp;&nbsp;&nbsp;&nbsp;**response_fields** - response validator (use JSONField to build this validator)
 
 <br>
 
@@ -202,13 +256,13 @@ Could be used to logout (with redis support) or just to let know frontend about 
 Any view could be used the same way, here is a **simple example**:
 
 &nbsp;&nbsp;&nbsp;&nbsp;**app/views.py:**
-```
+```python
 from django_rester.views import BaseAPIView
 from django_rester.decorators import permissions
 from django_rester.exceptions import ResponseOkMessage
 from django_rester.permission import IsAdmin
 from django_rester.status import HTTP_200_OK
-from app.models import Model
+from app.models import Model # import Model from your application
 from django_rester.fields import JSONField
 
 class TestView(BaseAPIView):
@@ -219,7 +273,12 @@ class TestView(BaseAPIView):
         "fk": [{"id": JSONField(field_type=int, required=True)}],
     }}
 
-
+    response_fields = {"POST": {
+        "id": JSONField(field_type=int, required=True, ),
+        "title": JSONField(field_type=str, required=True, default='some_title'),
+        # ...
+    }}
+    
     def retrieve_items():
         return Model.objects.all()
 
@@ -247,7 +306,7 @@ class TestView(BaseAPIView):
 ```
 
 &nbsp;&nbsp;&nbsp;&nbsp;**app/urls.py:**
-```
+```python
 from django.conf.urls import url
 from .views import TestView
 
@@ -257,7 +316,7 @@ urlpatterns = [
 ```
 ***
 
-##### 7. built-in fields
+##### 8. built-in fields
 
 ```from django_rester.fields import ...```
 <br><br><br>
@@ -277,7 +336,9 @@ class attributes:
 
 &nbsp;&nbsp;&nbsp;&nbsp;**field** - field for foreign relations
 
-methods:
+methods (public), with normal usage, you won't need them in your code:
+
+&nbsp;&nbsp;&nbsp;&nbsp;**check_type** - validate type of JSONField value
 
 &nbsp;&nbsp;&nbsp;&nbsp;**validate** - validate field value with parameters
 ***

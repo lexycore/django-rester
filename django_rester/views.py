@@ -23,10 +23,10 @@ from .settings import rester_settings
 class BaseAPIView(View):
     auth = rester_settings['AUTH_BACKEND']()
     request_fields, response_fields = {}, {}
-    response_structure = rester_settings['RESPONSE_STRUCTURE']
-    cors_access = rester_settings['CORS_ACCESS']
-    excluded_methods = rester_settings['FIELDS_CHECK_EXCLUDED_METHODS']
-    soft_response_validation = rester_settings['SOFT_RESPONSE_VALIDATION']
+    _response_structure = rester_settings['RESPONSE_STRUCTURE']
+    _cors_access = rester_settings['CORS_ACCESS']
+    _excluded_methods = rester_settings['FIELDS_CHECK_EXCLUDED_METHODS']
+    _soft_response_validation = rester_settings['SOFT_RESPONSE_VALIDATION']
 
     @classmethod
     def as_view(cls, **kwargs):
@@ -99,10 +99,10 @@ class BaseAPIView(View):
             structure = fields.get(method, None)
         else:
             structure = fields
-        if not structure and method not in self.excluded_methods:
+        if not structure and method not in self._excluded_methods:
             raise exception(exception_message)
         structured_data, messages = self._check_json_field(data, structure)
-        if fields is self.response_fields and self.soft_response_validation:
+        if fields is self.response_fields and self._soft_response_validation:
             structured_data = self._add_filtered_data(data, structured_data)
         return structured_data, messages
 
@@ -220,10 +220,10 @@ class BaseAPIView(View):
 
     def _set_cors(self, result):
         result['Access-Control-Allow-Headers'] = 'Access-Control-Allow-Origin, Content-Type, Authorization'
-        if self.cors_access is True:
+        if self._cors_access is True:
             result['Access-Control-Allow-Origin'] = '*'
-        elif self.cors_access:
-            result['Access-Control-Allow-Origin'] = self.cors_access
+        elif self._cors_access:
+            result['Access-Control-Allow-Origin'] = self._cors_access
         else:
             result['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
         return result
@@ -268,12 +268,12 @@ class BaseAPIView(View):
         return _response, response_status, messages
 
     def set_response_structure(self, data, success=True, message=None):
-        if self.response_structure:
+        if self._response_structure:
             res_data = {'success': success,
                         'message': message or [],
                         'data': data,
                         }
-            str_data = dict(self.response_structure)
+            str_data = dict(self._response_structure)
             for item in str_data.keys():
                 if str_data[item] in res_data:
                     str_data[item] = res_data[item]
