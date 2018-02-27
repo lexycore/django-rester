@@ -63,7 +63,7 @@ class ResterSettings(dict):
         try:
             tmp = __import__(auth_backend, globals(), locals(), ['Auth'])
             auth = getattr(tmp, 'Auth')
-        except:
+        except (ImportError, AttributeError):
             auth = AuthMock
         return auth
 

@@ -24,9 +24,6 @@ class JSONField:
             # if not self.var_type:
             #    raise ValueError('var_type should be specified')
 
-    def validate_field(self, value):
-        pass
-
     def check_type(self, value):
         messages = []
         try:

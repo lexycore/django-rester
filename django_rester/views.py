@@ -77,7 +77,6 @@ class BaseAPIView(View):
             structured_data = self._add_filtered_data(data, structured_data)
         return structured_data, messages
 
-
     def _add_filtered_data(self, data, structured_data):
         # recursive function, validates response_data by response_fields
         value = None
@@ -238,16 +237,16 @@ class BaseAPIView(View):
         return _response, response_status, messages
 
     def set_response_structure(self, data=None, success=True, message=None):
-        # TODO check with RESPONSE_STRUCTURE settings?
         if self._response_structure:
             res_data = {'success': success,
                         'message': message or [],
                         'data': data,
                         }
             str_data = dict(self._response_structure)
-            for item in str_data.keys():
-                if str_data[item] in res_data:
-                    str_data[item] = res_data[item]
+            for key, value in str_data.items():
+                if key in res_data.keys():
+                    del str_data[key]
+                    str_data[value] = res_data[key]
             _response = str_data
         else:
             _response = data
