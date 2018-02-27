@@ -238,6 +238,7 @@ class BaseAPIView(View):
         return _response, response_status, messages
 
     def set_response_structure(self, data=None, success=True, message=None):
+        # TODO check with RESPONSE_STRUCTURE settings?
         if self._response_structure:
             res_data = {'success': success,
                         'message': message or [],
