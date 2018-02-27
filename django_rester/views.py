@@ -22,6 +22,7 @@ from .settings import rester_settings
 
 class BaseAPIView(View):
     auth = rester_settings['AUTH_BACKEND']()
+    request_data = None
     request_fields, response_fields = {}, {}
     _response_structure = rester_settings['RESPONSE_STRUCTURE']
     _cors_access = rester_settings['CORS_ACCESS']
@@ -75,6 +76,7 @@ class BaseAPIView(View):
         if fields is self.response_fields and self._soft_response_validation:
             structured_data = self._add_filtered_data(data, structured_data)
         return structured_data, messages
+
 
     def _add_filtered_data(self, data, structured_data):
         # recursive function, validates response_data by response_fields
@@ -152,14 +154,14 @@ class BaseAPIView(View):
         return request_data, messages
 
     def dispatch(self, request, *args, **kwargs):
-        request_data, messages = self._set_request_data(request)
+        self.request_data, messages = self._set_request_data(request)
         _response, status = None, None
         if not messages:
             user, messages = self.auth.authenticate(request)
             if not messages and user:
                 request.user = user
-            request_data, messages_ = self._data_validate(
-                request.method, request_data, self.request_fields, RequestStructureException,
+            self.request_data, messages_ = self._data_validate(
+                request.method, self.request_data, self.request_fields, RequestStructureException,
                 'request data structure is not valid, check for documentation or leave blank')
             if messages_:
                 messages_ = [{"request": messages_}]
@@ -173,15 +175,15 @@ class BaseAPIView(View):
 
                 # TODO refactor this somehow
                 if method_name in ('options',):
-                    _response = handler(request, request_data, *args, **kwargs)
+                    _response = handler(request, *args, **kwargs)
                 else:
-                    _response = list(self.try_response(handler, request, request_data, *args, **kwargs))
+                    _response = list(self.try_response(handler, request, *args, **kwargs))
                     messages_ = _response.pop()
                     if messages_:
                         messages_ = [{"response": messages_}]
                     messages = messages + messages_
         if messages:
-            _response = self.set_response_structure(None, False, messages)
+            _response = self.set_response_structure(message=messages)
             _response = self._set_response((_response, HTTP_400_BAD_REQUEST))
         else:
             _response = self._set_response(_response)
@@ -202,14 +204,14 @@ class BaseAPIView(View):
         result = self._set_cors(result)
         return result
 
-    def try_response(self, handler, request, request_data, *args, **kwargs):
+    def try_response(self, handler, request, *args, **kwargs):
         message = []
         messages = []
         success = None
         data = None
         try:
             success = True
-            data = handler(request, request_data, *args, **kwargs)
+            data = handler(request, *args, **kwargs)
             response_status = HTTP_200_OK
             if isinstance(data, tuple) and len(data) == 2:
                 response_status = data[1]
@@ -235,7 +237,7 @@ class BaseAPIView(View):
         _response = self.set_response_structure(data, success, message)
         return _response, response_status, messages
 
-    def set_response_structure(self, data, success=True, message=None):
+    def set_response_structure(self, data=None, success=True, message=None):
         if self._response_structure:
             res_data = {'success': success,
                         'message': message or [],
@@ -252,13 +254,13 @@ class BaseAPIView(View):
 
 
 class Login(BaseAPIView):
-    def post(self, request, request_data, *args, **kwargs):
-        data, status = self.auth.login(request, request_data)
+    def post(self, request, *args, **kwargs):
+        data, status = self.auth.login(request, self.request_data)
         return data, status
 
 
 class Logout(BaseAPIView):
     @permissions(IsAuthenticated)
-    def get(self, request, request_data):
-        data, status = self.auth.logout(request, request_data)
+    def get(self, request):
+        data, status = self.auth.logout(request, self.request_data)
         return data, status

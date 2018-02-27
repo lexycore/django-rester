@@ -22,9 +22,9 @@ class TestView(BaseAPIView):
                 }
     }
 
-    def get(self, request, request_data, *args, **kwargs):
-        return request_data, HTTP_200_OK
+    def get(self, request, *args, **kwargs):
+        return self.request_data, HTTP_200_OK
 
-    def post(self, request, request_data, *args, **kwargs):
+    def post(self, request, *args, **kwargs):
         response = {"id": "1", "jk": 'kj', "title": "kljkhjkj", "lkjljl": 657, "fk": [{"id": 233, "asd": 222}]}
         return response, HTTP_200_OK
