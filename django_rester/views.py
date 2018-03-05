@@ -22,12 +22,16 @@ from .settings import rester_settings
 
 class BaseAPIView(View):
     auth = rester_settings['AUTH_BACKEND']()
-    request_data = None
     request_fields, response_fields = {}, {}
     _response_structure = rester_settings['RESPONSE_STRUCTURE']
     _cors_access = rester_settings['CORS_ACCESS']
     _excluded_methods = rester_settings['FIELDS_CHECK_EXCLUDED_METHODS']
     _soft_response_validation = rester_settings['SOFT_RESPONSE_VALIDATION']
+
+    def __init__(self, *kwargs):
+        super().__init__(*kwargs)
+        self.request = None
+        self.request_data = None
 
     @classmethod
     def as_view(cls, **kwargs):
@@ -190,10 +194,10 @@ class BaseAPIView(View):
 
     def _set_cors(self, result):
         result['Access-Control-Allow-Headers'] = 'Access-Control-Allow-Origin, Content-Type, Authorization'
-        if self._cors_access is True:
-            result['Access-Control-Allow-Origin'] = '*'
-        elif self._cors_access:
+        if isinstance(self._cors_access, str):
             result['Access-Control-Allow-Origin'] = self._cors_access
+        elif self._cors_access is True:
+            result['Access-Control-Allow-Origin'] = '*'
         else:
             result['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
         return result
