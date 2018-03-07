@@ -30,7 +30,6 @@ class BaseAPIView(View):
 
     def __init__(self, *kwargs):
         super().__init__(*kwargs)
-        self.request = None
         self.request_data = None
 
     @classmethod
