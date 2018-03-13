@@ -3,8 +3,8 @@ import jwt
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from django_rediser import RedisStorage
-from ..status import HTTP_200_OK, HTTP_401_UNAUTHORIZED
-from .settings import rester_jwt_settings
+from django_rester.status import HTTP_200_OK, HTTP_401_UNAUTHORIZED
+from django_rester.rester_jwt.settings import rester_jwt_settings
 
 redis_db = None
 if isinstance(rester_jwt_settings['USE_REDIS'], int) and not isinstance(rester_jwt_settings['USE_REDIS'], bool):

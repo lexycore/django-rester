@@ -1,4 +1,4 @@
-from .status import (
+from django_rester.status import (
     HTTP_500_INTERNAL_SERVER_ERROR,
     HTTP_400_BAD_REQUEST,
     HTTP_401_UNAUTHORIZED,

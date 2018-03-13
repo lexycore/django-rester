@@ -1,5 +1,5 @@
-from .url_mapper import UrlMapper
-from .singleton import Singleton
+from django_rester.url_mapper import UrlMapper
+from django_rester.singleton import Singleton
 
 
 class SwaggerGenerator(metaclass=Singleton):

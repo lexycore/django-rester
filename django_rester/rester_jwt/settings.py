@@ -1,19 +1,9 @@
-import threading
-
 from django.conf import settings
 
+from django_rester.singleton import Singleton
 
-class ResterSettings(dict):
-    __singleton_lock = threading.Lock()
-    __singleton_instance = None
 
-    @classmethod
-    def __new__(cls, *args, **kwargs):
-        if not cls.__singleton_instance:
-            with cls.__singleton_lock:
-                if not cls.__singleton_instance:
-                    cls.__singleton_instance = super().__new__(cls)
-        return cls.__singleton_instance
+class ResterSettings(dict, metaclass=Singleton):
 
     def __init__(self):
         super().__init__()

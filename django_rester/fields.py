@@ -1,6 +1,6 @@
 from django.apps import apps
 from django.db.models.base import ModelBase
-from .exceptions import JSONFieldModelTypeError, JSONFieldModelError, JSONFieldValueError
+from django_rester.exceptions import JSONFieldModelTypeError, JSONFieldModelError, JSONFieldValueError
 
 
 class JSONField:

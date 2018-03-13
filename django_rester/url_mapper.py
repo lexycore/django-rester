@@ -2,7 +2,7 @@ from django.conf.urls import RegexURLPattern, RegexURLResolver
 from django.core import urlresolvers
 
 from django_rester.views import BaseAPIView
-from .singleton import Singleton
+from django_rester.singleton import Singleton
 
 
 class UrlMapper(metaclass=Singleton):

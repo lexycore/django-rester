@@ -1,5 +1,5 @@
-from .permission import BasePermission
-from .status import HTTP_401_UNAUTHORIZED
+from django_rester.permission import BasePermission
+from django_rester.status import HTTP_401_UNAUTHORIZED
 
 
 def permissions(*perms):

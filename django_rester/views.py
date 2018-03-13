@@ -4,10 +4,10 @@ from json import JSONDecodeError
 from django.http import HttpResponse
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
-from .decorators import permissions
-from .permission import IsAuthenticated
-from .status import HTTP_200_OK, HTTP_500_INTERNAL_SERVER_ERROR, HTTP_400_BAD_REQUEST
-from .exceptions import (
+from django_rester.decorators import permissions
+from django_rester.permission import IsAuthenticated
+from django_rester.status import HTTP_200_OK, HTTP_500_INTERNAL_SERVER_ERROR, HTTP_400_BAD_REQUEST
+from django_rester.exceptions import (
     RequestStructureException,
     ResponseError,
     ResponseBadRequestMsgList,
@@ -16,8 +16,8 @@ from .exceptions import (
     ResponseStructureException,
 )
 
-from .fields import JSONField
-from .settings import rester_settings
+from django_rester.fields import JSONField
+from django_rester.settings import rester_settings
 
 
 class BaseAPIView(View):
