@@ -257,7 +257,7 @@ class BaseAPIView(View):
 
 
 class Login(BaseAPIView):
-    def post(self, request, *args, **kwargs):
+    def post(self, request):
         data, status = self.auth.login(request, self.request_data)
         return data, status
 
