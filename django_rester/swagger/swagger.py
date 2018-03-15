@@ -1,4 +1,4 @@
-from django_rester.url_mapper import UrlMapper
+from django_rester.swagger.url_mapper import UrlMapper
 from django_rester.singleton import Singleton
 
 
