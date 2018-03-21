@@ -65,7 +65,7 @@ class BaseAuth:
 
             if data:
                 exp_date = data.pop('exp', None)
-                user_data = {item: data.get(item, None) for item in rester_jwt_settings['PAYLOAD_LIST']}
+                user_data = {item: data.get(item) for item in rester_jwt_settings['PAYLOAD_LIST']}
             if exp_date and user_data and exp_date > datetime.datetime.now().timestamp():
                 user = self._get_user(**user_data)
         else:
@@ -77,7 +77,7 @@ class BaseAuth:
 class Auth(BaseAuth):
     def login(self, request, request_data):
         token = None
-        login = request_data.get(rester_jwt_settings['LOGIN_FIELD'], None)
+        login = request_data.get(rester_jwt_settings['LOGIN_FIELD'])
         password = request_data.get('password', '')
         if login is not None:
             user = authenticate(username=login, password=password)

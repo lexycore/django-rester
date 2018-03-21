@@ -3,6 +3,7 @@ from django.conf import settings
 from django_rester.status import HTTP_200_OK
 from django_rester.singleton import Singleton
 
+
 class AuthMock:
     def login(self, request):
         return None, HTTP_200_OK
@@ -20,7 +21,7 @@ class ResterSettings(dict, metaclass=Singleton):
         super().__init__()
         _django_rester_settings = getattr(settings, 'DJANGO_RESTER', {})
         self.update({
-            # 'LOGIN_FIELD': _django_rester_settings.get('LOGIN_FIELD', 'username'),
+            'LOGIN_FIELD': _django_rester_settings.get('LOGIN_FIELD', 'username'),
             'RESPONSE_STRUCTURE': self._set_response_structure(
                 _django_rester_settings.get('RESPONSE_STRUCTURE', False)),
         })

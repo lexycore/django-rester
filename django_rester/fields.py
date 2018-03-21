@@ -3,6 +3,25 @@ from django.db.models.base import ModelBase
 from django_rester.exceptions import JSONFieldModelTypeError, JSONFieldModelError, JSONFieldValueError
 
 
+class SwaggerFields:
+    fields_by_types = {'tags': list, 'summary': str, 'description': str, 'operationId': str,
+                       'consumes': list, 'produces': list}
+
+    def __init__(self, **kwargs):
+
+        for key, value in kwargs.items():
+            if key in self.fields_by_types.keys():
+                setattr(self, key, self.validate_type(value, self.fields_by_types.get(key, str)))
+            else:
+                raise AttributeError("There is no '{}' attribute at this instance of SwaggerFields".format(key))
+
+    @staticmethod
+    def validate_type(value, value_type):
+        if not isinstance(value, value_type):
+            value = value_type(value)
+        return value
+
+
 class JSONField:
     types = (int, float, str, bool)
 
@@ -20,9 +39,6 @@ class JSONField:
 
         if model and not field:
             self.field = 'id'
-
-            # if not self.var_type:
-            #    raise ValueError('var_type should be specified')
 
     def check_type(self, value):
         messages = []

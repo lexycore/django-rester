@@ -16,21 +16,22 @@ from django_rester.exceptions import (
     ResponseStructureException,
 )
 
-from django_rester.fields import JSONField
+from django_rester.fields import JSONField, SwaggerFields
 from django_rester.settings import rester_settings
 
 
 class BaseAPIView(View):
+    request_data = None
     auth = rester_settings['AUTH_BACKEND']()
-    request_fields, response_fields = {}, {}
+    request_fields, response_fields, swagger_fields = {}, {}, {}
     _response_structure = rester_settings['RESPONSE_STRUCTURE']
     _cors_access = rester_settings['CORS_ACCESS']
     _excluded_methods = rester_settings['FIELDS_CHECK_EXCLUDED_METHODS']
     _soft_response_validation = rester_settings['SOFT_RESPONSE_VALIDATION']
 
-    def __init__(self, *kwargs):
-        super().__init__(*kwargs)
-        self.request_data = None
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.allowed_methods = self._allowed_methods()
 
     @classmethod
     def as_view(cls, **kwargs):
@@ -257,12 +258,22 @@ class BaseAPIView(View):
 
 
 class Login(BaseAPIView):
+    swagger_fields = {"POST": SwaggerFields(tags=['login', 'authenticate'], summary='Login endpoint')}
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.request_fields = {"POST": {self.auth.login: JSONField(required=True, field_type=str),
+                                        "password": JSONField(required=True, field_type=str)}}
+        self.response_fields = {"POST": {"token": JSONField(required=True, field_type=str)}}
+
     def post(self, request):
         data, status = self.auth.login(request, self.request_data)
         return data, status
 
 
 class Logout(BaseAPIView):
+    swagger_fields = {"GET": SwaggerFields(tags=['logout'], summary='Logout endpoint')}
+
     @permissions(IsAuthenticated)
     def get(self, request):
         data, status = self.auth.logout(request, self.request_data)

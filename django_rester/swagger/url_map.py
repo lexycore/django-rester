@@ -5,10 +5,10 @@ from django_rester.views import BaseAPIView
 from django_rester.singleton import Singleton
 
 
-class UrlMapper(metaclass=Singleton):
-    urls_class_map = {}
+class UrlMap(dict, metaclass=Singleton):
 
     def __init__(self):
+        super().__init__()
         urls = urlresolvers.get_resolver()
         self._build_map(urls)
 
@@ -34,4 +34,4 @@ class UrlMapper(metaclass=Singleton):
             elif isinstance(url, RegexURLPattern):
                 _cls = self._filter_rester_views(url.lookup_str)
                 if _cls:
-                    self.urls_class_map.update({url_pattern: _cls})
+                    self.update({url_pattern: _cls})
