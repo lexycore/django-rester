@@ -83,6 +83,7 @@ setup(
     packages=[
         'django_rester',
         'django_rester.rester_jwt',
+        'django_rester.swagger'
     ],
     setup_requires=[
         'wheel',
@@ -95,6 +96,7 @@ setup(
         'django',
         'pyjwt',
         'django-rediser',
+        'pyyaml',
     ],
     package_data={
         '': [

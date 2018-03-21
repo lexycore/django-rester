@@ -25,7 +25,8 @@ class SwaggerFields:
 class JSONField:
     types = (int, float, str, bool)
 
-    def __init__(self, field_type=None, required=False, default=None, blank=True, model=None, field=''):
+    def __init__(self, field_type=None, required=False, default=None, blank=True, model=None,
+                 field='', description=''):
         if field_type not in self.types:
             raise JSONFieldValueError('field_type should be one of: {}'.format(
                 str(self.types).replace("<class '", '').replace("'>", '')))
@@ -36,6 +37,7 @@ class JSONField:
         self.key = ''
         self.model = self._set_model(model)
         self.field = field
+        self.description = description
 
         if model and not field:
             self.field = 'id'

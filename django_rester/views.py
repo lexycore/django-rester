@@ -259,12 +259,9 @@ class BaseAPIView(View):
 
 class Login(BaseAPIView):
     swagger_fields = {"POST": SwaggerFields(tags=['login', 'authenticate'], summary='Login endpoint')}
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.request_fields = {"POST": {self.auth.login: JSONField(required=True, field_type=str),
-                                        "password": JSONField(required=True, field_type=str)}}
-        self.response_fields = {"POST": {"token": JSONField(required=True, field_type=str)}}
+    response_fields = {"POST": {"token": JSONField(required=True, field_type=str)}}
+    request_fields = {"POST": {rester_settings['LOGIN_FIELD']: JSONField(required=True, field_type=str),
+                               "password": JSONField(required=True, field_type=str)}}
 
     def post(self, request):
         data, status = self.auth.login(request, self.request_data)

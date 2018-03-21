@@ -33,6 +33,7 @@ class ResterSettings(dict, metaclass=Singleton):
                                                                                   ['OPTIONS', 'HEAD'])})
         self.update({'SOFT_RESPONSE_VALIDATION': _django_rester_settings.get('SOFT_RESPONSE_VALIDATION',
                                                                              False)})
+        self.update({'SWAGGER_FILE_FORMAT':_django_rester_settings.get('SWAGGER_FILE_FORMAT', 'yaml')})
 
     @staticmethod
     def _set_response_structure(structure):
