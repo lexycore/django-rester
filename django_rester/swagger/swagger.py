@@ -16,7 +16,7 @@ class SwaggerGenerator(metaclass=Singleton):
     def __init__(self, url_map=None):
         self.url_map = url_map or UrlMap()
         self.path_parameter = 'query'
-
+        self.swagger_data = [{"swagger": "2.0"}, {"info": self.swagger_info}, {"paths": self.generate_paths()}]
         if self.make_swagger_file:
             pass
 
@@ -55,15 +55,7 @@ class SwaggerGenerator(metaclass=Singleton):
                     method_dict.update({'parameters': parameters})
         return base_structure
 
-    def generate_swagger(self):
-        swagger_data = {
-            "info": self.swagger_info,
-            "paths": self.generate_paths(),
-            "swagger": self.swagger_version,
-        }
-        return swagger_data
-
     def generate_file(self):
-        #stream = open(os.path.join(os.getcwd(),'swagger.yaml'), 'w+')
-        with open('swagger.yaml', 'w+') as f:
-            yaml.dump(self.generate_swagger(), f, default_flow_style=False)
+        for swagger_item in self.swagger_data:
+            with open('swagger.yaml', 'a') as f:
+                yaml.dump(swagger_item, f, default_flow_style=False)
