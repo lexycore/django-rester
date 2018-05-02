@@ -14,6 +14,7 @@ from .exceptions import (
     ResponseOkMessage,
     ResponseFailMessage,
     ResponseStructureException,
+    CustomValidationException,
 )
 
 from .fields import JSONField
@@ -76,6 +77,12 @@ class BaseAPIView(View):
         if not structure and method not in self._excluded_methods:
             raise exception(exception_message)
         structured_data, messages = self._check_json_field(data, structure)
+        if not messages:
+            try:
+                structured_data = self.custom_validation(structured_data)
+                assert structured_data is not None, '.custom_validation() should return validated structured data'
+            except (AssertionError, CustomValidationException) as exc:
+                messages = [exc]
         if fields is self.response_fields and self._soft_response_validation:
             structured_data = self._add_filtered_data(data, structured_data)
         return structured_data, messages
@@ -154,6 +161,11 @@ class BaseAPIView(View):
             except JSONDecodeError:
                 messages.append(message)
         return request_data, messages
+
+    def custom_validation(self, structured_data):
+        # This method needs for custom validation
+        # Only CustomValidationException must be raised here
+        return structured_data
 
     def dispatch(self, request, *args, **kwargs):
         self.request_data, messages = self._set_request_data(request)
