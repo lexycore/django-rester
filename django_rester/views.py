@@ -25,8 +25,8 @@ class BaseAPIView(View):
     auth = rester_settings['AUTH_BACKEND']()
     request_fields, response_fields = {}, {}
 
-    def __init__(self, *kwargs):
-        super().__init__(*kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.request_data = None
 
     @classmethod
