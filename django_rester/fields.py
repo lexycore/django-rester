@@ -24,9 +24,6 @@ class JSONField:
             # if not self.var_type:
             #    raise ValueError('var_type should be specified')
 
-    def validate_field(self, value):
-        pass
-
     def check_type(self, value):
         messages = []
         try:
@@ -53,17 +50,6 @@ class JSONField:
             value, msg = self.check_type(value)
             messages += msg
         return value, messages
-
-    # def check_type(self, key):
-    #     # Check if instance type is valid, try to convert to specified type, error if can't be done
-    #     if self.field_type:
-    #         try:
-    #             new_key = self.field_type(key)
-    #         except (TypeError, ValueError):
-    #             raise JSONFieldTypeError('{} type is not {} and cannot be converted'.format(key, str(self.field_type)))
-    #         return new_key
-    #     else:
-    #         return key
 
     @staticmethod
     def _set_model(model):

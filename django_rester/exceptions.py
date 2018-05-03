@@ -57,12 +57,12 @@ class JSONFieldError(ResterException):
 
 
 class JSONFieldModelTypeError(JSONFieldError):
-    # JSONField exception, raises when type of model parameter in not valid
+    # JSONField exception, raises when type of model parameter is not valid
     pass
 
 
 class JSONFieldModelError(JSONFieldError):
-    # JSONField exception, raises when value of model parameter in not valid
+    # JSONField exception, raises when value of model parameter is not valid
     pass
 
 
@@ -82,5 +82,15 @@ class BaseAPIViewException(Exception):
 
 
 class RequestStructureException(BaseAPIViewException):
-    # raises when request_data structure is not valid
+    # raise if request structure is invalid
+    pass
+
+
+class ResponseStructureException(RequestStructureException):
+    # raise if response structure is invalid
+    pass
+
+
+class CustomValidationException(BaseAPIViewException):
+    # raise if there error in custom validation
     pass
