@@ -24,10 +24,6 @@ from .settings import rester_settings
 class BaseAPIView(View):
     auth = rester_settings['AUTH_BACKEND']()
     request_fields, response_fields = {}, {}
-    _response_structure = rester_settings['RESPONSE_STRUCTURE']
-    _cors_access = rester_settings['CORS_ACCESS']
-    _excluded_methods = rester_settings['FIELDS_CHECK_EXCLUDED_METHODS']
-    _soft_response_validation = rester_settings['SOFT_RESPONSE_VALIDATION']
 
     def __init__(self, *kwargs):
         super().__init__(*kwargs)
@@ -56,15 +52,18 @@ class BaseAPIView(View):
         else:
             response = _response
             status = HTTP_200_OK
-        try:
-            pure_response = json.dumps(response)
-            content_type = 'application/json'
-        except TypeError:
-            pure_response = str(response)
-            status = HTTP_500_INTERNAL_SERVER_ERROR
-            content_type = 'text/plain'
-        result = HttpResponse(pure_response, content_type=content_type, status=status)
-        result = self._set_cors(result)
+        if isinstance(response, HttpResponse):
+            result = response
+        else:
+            try:
+                pure_response = json.dumps(response)
+                content_type = 'application/json'
+            except TypeError:
+                pure_response = str(response)
+                status = HTTP_500_INTERNAL_SERVER_ERROR
+                content_type = 'text/plain'
+            result = HttpResponse(pure_response, content_type=content_type, status=status)
+            result = self._set_cors(result)
         return result
 
     def _data_validate(self, method, data, fields, exception, exception_message):
@@ -74,7 +73,7 @@ class BaseAPIView(View):
             structure = fields.get(method, None)
         else:
             structure = fields
-        if not structure and method not in self._excluded_methods:
+        if not structure and method not in rester_settings.get('FIELDS_CHECK_EXCLUDED_METHODS', []):
             raise exception(exception_message)
         structured_data, messages = self._check_json_field(data, structure)
         if not messages:
@@ -83,7 +82,7 @@ class BaseAPIView(View):
                 assert structured_data is not None, '.custom_validation() should return validated structured data'
             except (AssertionError, CustomValidationException) as exc:
                 messages = [exc]
-        if fields is self.response_fields and self._soft_response_validation:
+        if fields is self.response_fields and rester_settings.get('SOFT_RESPONSE_VALIDATION', False):
             structured_data = self._add_filtered_data(data, structured_data)
         return structured_data, messages
 
@@ -146,7 +145,7 @@ class BaseAPIView(View):
         return value, messages
 
     def _set_request_data(self, request):
-        request_data, messages, message = None, [], 'Request data is not json serializable'
+        request_data, messages = None, []
         method = request.method
         if method in self._allowed_methods():
             try:
@@ -157,9 +156,9 @@ class BaseAPIView(View):
                 elif method in ('OPTIONS', 'HEAD'):
                     request_data = {}
                 if not isinstance(request_data, (dict, list)):
-                    messages.append(message)
+                    raise JSONDecodeError
             except JSONDecodeError:
-                messages.append(message)
+                messages.append('Request data is not json serializable')
         return request_data, messages
 
     def custom_validation(self, structured_data):
@@ -179,6 +178,7 @@ class BaseAPIView(View):
                 'request data structure is not valid, check for documentation or leave blank')
             if messages_:
                 messages_ = [{"request": messages_}]
+            # request_data, messages_ = self._request_data_validate(request.method, request_data)
             messages += messages_
             method_name = request.method.lower()
             if not messages:
@@ -188,26 +188,26 @@ class BaseAPIView(View):
                     handler = self.http_method_not_allowed
 
                 # TODO refactor this somehow
-                if method_name in ('options',):
-                    _response = handler(request, *args, **kwargs)
-                else:
-                    _response = list(self.try_response(handler, request, *args, **kwargs))
-                    messages_ = _response.pop()
-                    if messages_:
-                        messages_ = [{"response": messages_}]
-                    messages = messages + messages_
+                # if method_name in ('options',):
+                #     _response = handler(request, *args, **kwargs)
+                # else:
+                _response = list(self.try_response(handler, request, *args, **kwargs))
+                messages_ = _response.pop()
+                if messages_:
+                    messages_ = [{"response": messages_}]
+                messages = messages + messages_
         if messages:
-            _response = self.set_response_structure(message=messages)
-            _response = self._set_response((_response, HTTP_400_BAD_REQUEST))
-        else:
-            _response = self._set_response(_response)
+            _response = [self.set_response_structure(data=_response[0], message=messages),
+                         HTTP_400_BAD_REQUEST]
+        _response = self._set_response(_response)
         return _response
 
     def _set_cors(self, result):
+        cors_access = rester_settings.get('CORS_ACCESS')
         result['Access-Control-Allow-Headers'] = 'Access-Control-Allow-Origin, Content-Type, Authorization'
-        if isinstance(self._cors_access, str):
-            result['Access-Control-Allow-Origin'] = self._cors_access
-        elif self._cors_access is True:
+        if isinstance(cors_access, str):
+            result['Access-Control-Allow-Origin'] = cors_access
+        elif cors_access is True:
             result['Access-Control-Allow-Origin'] = '*'
         else:
             result['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
@@ -226,12 +226,15 @@ class BaseAPIView(View):
         try:
             success = True
             data = handler(request, *args, **kwargs)
-            response_status = HTTP_200_OK
-            if isinstance(data, tuple) and len(data) == 2:
-                response_status = data[1]
-                data = data[0]
-            data, messages = self._data_validate(request.method, data, self.response_fields, ResponseStructureException,
-                                                 'response data structure is not valid, check for documentation or leave blank')
+            if isinstance(data, HttpResponse):
+                response_status = data.status_code
+            else:
+                response_status = HTTP_200_OK
+                if isinstance(data, tuple) and len(data) == 2:
+                    response_status = data[1]
+                    data = data[0]
+                data, messages = self._data_validate(request.method, data, self.response_fields, ResponseStructureException,
+                                                     'response data structure is not valid, check for documentation or leave blank')
         except ResponseError as err:
             response_status = err.response_status
             if isinstance(err, ResponseBadRequestMsgList):
@@ -252,19 +255,22 @@ class BaseAPIView(View):
         return _response, response_status, messages
 
     def set_response_structure(self, data=None, success=True, message=None):
-        if self._response_structure:
-            res_data = {'success': success,
-                        'message': message or [],
-                        'data': data,
-                        }
-            str_data = dict(self._response_structure)
-            for key, value in str_data.items():
-                if key in res_data.keys():
-                    del str_data[key]
-                    str_data[value] = res_data[key]
-            _response = str_data
-        else:
+        if isinstance(data, HttpResponse):
             _response = data
+        else:
+            response_structure = rester_settings.get('RESPONSE_STRUCTURE', {})
+            if response_structure:
+                res_data = {'success': success,
+                            'message': message or [],
+                            'data': data,
+                            }
+                str_data = dict(response_structure)
+                for item in str_data.keys():
+                    if str_data[item] in res_data:
+                        str_data[item] = res_data[item]
+                _response = str_data
+            else:
+                _response = data
         return _response
 
 

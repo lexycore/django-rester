@@ -48,9 +48,9 @@ DJANGO_RESTER_JWT: {
 
 &nbsp;&nbsp;&nbsp;&nbsp; **AUTH_BACKEND** - authentication backend*
 
-&nbsp;&nbsp;&nbsp;&nbsp; **RESPONSE_STRUCTURE** - False or can be a dict with 'success', 'message' and 'data' as a values
+&nbsp;&nbsp;&nbsp;&nbsp; **RESPONSE_STRUCTURE** - Either False or a dict with 'success', 'message' and 'data' as a values
 
-&nbsp;&nbsp;&nbsp;&nbsp; **CORS_ACCESS** - CORS control, True, False, "*", hosts_string
+&nbsp;&nbsp;&nbsp;&nbsp; **CORS_ACCESS** - CORS control: True, False, '*', hosts_string
 
 &nbsp;&nbsp;&nbsp;&nbsp; **FIELDS_CHECK_EXCLUDED_METHODS** - methods, which will not be processed with body structure checks 
 
