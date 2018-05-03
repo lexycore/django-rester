@@ -89,3 +89,8 @@ class RequestStructureException(BaseAPIViewException):
 class ResponseStructureException(RequestStructureException):
     # raise if response structure is invalid
     pass
+
+
+class CustomValidationException(BaseAPIViewException):
+    # raise if there error in custom validation
+    pass
