@@ -4,7 +4,7 @@ from .status import HTTP_401_UNAUTHORIZED
 
 def permissions(*perms):
     def permissions_decorator(f):
-        def wrapper(view, request, request_data, *args, **kwargs):
+        def wrapper(view, request, *args, **kwargs):
             checked, message = True, ''
             for perm_item in perms:
                 if issubclass(perm_item, BasePermission):
@@ -13,7 +13,7 @@ def permissions(*perms):
                     if not checked:
                         break
             if checked:
-                data = f(view, request, request_data, *args, **kwargs)
+                data = f(view, request, *args, **kwargs)
             else:
                 data = message, HTTP_401_UNAUTHORIZED
             return data
