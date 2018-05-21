@@ -30,6 +30,10 @@ class BaseAPIView(View):
         self.request_data = None
 
     @classmethod
+    def get_login_field(cls):
+        return cls.auth.settings.get('LOGIN_FIELD') or rester_settings.get('LOGIN_FIELD')
+
+    @classmethod
     def as_view(cls, **kwargs):
         view = super(BaseAPIView, cls).as_view()
         view.cls = cls
@@ -81,7 +85,7 @@ class BaseAPIView(View):
                 structured_data = self.custom_validation(structured_data)
                 assert structured_data is not None, '.custom_validation() should return validated structured data'
             except (AssertionError, CustomValidationException) as exc:
-                messages = [exc]
+                messages = ['{}'.format(exc)]
         if fields is self.response_fields and rester_settings.get('SOFT_RESPONSE_VALIDATION', False):
             structured_data = self._add_filtered_data(data, structured_data)
         return structured_data, messages
@@ -164,11 +168,11 @@ class BaseAPIView(View):
     def custom_validation(self, structured_data):
         # This method needs for custom validation
         # Only CustomValidationException must be raised here
-        return structured_data
+        return structured_data or {}
 
     def dispatch(self, request, *args, **kwargs):
         self.request_data, messages = self._set_request_data(request)
-        _response, status = None, None
+        _response, status = [None], None
         if not messages:
             user, messages = self.auth.authenticate(request)
             if not messages and user:
@@ -178,7 +182,6 @@ class BaseAPIView(View):
                 'request data structure is not valid, check for documentation or leave blank')
             if messages_:
                 messages_ = [{"request": messages_}]
-            # request_data, messages_ = self._request_data_validate(request.method, request_data)
             messages += messages_
             method_name = request.method.lower()
             if not messages:
@@ -233,7 +236,8 @@ class BaseAPIView(View):
                 if isinstance(data, tuple) and len(data) == 2:
                     response_status = data[1]
                     data = data[0]
-                data, messages = self._data_validate(request.method, data, self.response_fields, ResponseStructureException,
+                data, messages = self._data_validate(request.method, data, self.response_fields,
+                                                     ResponseStructureException,
                                                      'response data structure is not valid, check for documentation or leave blank')
         except ResponseError as err:
             response_status = err.response_status
@@ -275,7 +279,11 @@ class BaseAPIView(View):
 
 
 class Login(BaseAPIView):
-    def post(self, request, *args, **kwargs):
+    response_fields = {"POST": {"token": JSONField(required=True, field_type=str)}}
+    request_fields = {"POST": {BaseAPIView.get_login_field(): JSONField(required=True, field_type=str),
+                               "password": JSONField(required=True, field_type=str)}}
+
+    def post(self, request):
         data, status = self.auth.login(request, self.request_data)
         return data, status
 
