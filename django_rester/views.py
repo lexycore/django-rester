@@ -1,4 +1,5 @@
 import json
+import logging
 from json import JSONDecodeError
 
 from django.http import HttpResponse
@@ -19,6 +20,8 @@ from .exceptions import (
 
 from .fields import JSONField
 from .settings import rester_settings
+
+logger = logging.getLogger('django_rester')
 
 
 class BaseAPIView(View):
@@ -208,6 +211,13 @@ class BaseAPIView(View):
     def _set_cors(self, result):
         cors_access = rester_settings.get('CORS_ACCESS')
         result['Access-Control-Allow-Headers'] = 'Access-Control-Allow-Origin, Content-Type, Authorization'
+        # TODO: multiple domains in CORS_ACCESS
+        """
+        Sounds like the recommended way to do it is to have your server read the Origin header 
+        from the client, compare that to the list of domains you would like to allow, 
+        and if it matches, echo the value of the Origin header back to the client 
+        as the Access-Control-Allow-Origin header in the response.
+        """
         if isinstance(cors_access, str):
             result['Access-Control-Allow-Origin'] = cors_access
         elif cors_access is True:
@@ -226,6 +236,7 @@ class BaseAPIView(View):
         messages = []
         success = None
         data = None
+        logger.debug('Request: [{} {}] {}'.format(request.method, request.path, self.request_data))
         try:
             success = True
             data = handler(request, *args, **kwargs)
@@ -240,6 +251,7 @@ class BaseAPIView(View):
                                                      ResponseStructureException,
                                                      'response data structure is not valid, check for documentation or leave blank')
         except ResponseError as err:
+            logger.exception('Error in handler for [{}]'.format(request.path))
             response_status = err.response_status
             if isinstance(err, ResponseBadRequestMsgList):
                 message = err.messages
@@ -251,11 +263,13 @@ class BaseAPIView(View):
             else:
                 message = '{}'.format(err)
         except Exception as err:
+            logger.exception('Error in handler for [{}]'.format(request.path))
             message = '{}'.format(err)
             response_status = HTTP_500_INTERNAL_SERVER_ERROR
         if success is not None:
             success = 200 <= response_status <= 299
         _response = self.set_response_structure(data, success, message)
+        logger.debug('Response: [{}] {}'.format(response_status, _response))
         return _response, response_status, messages
 
     def set_response_structure(self, data=None, success=True, message=None):
