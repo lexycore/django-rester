@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django_rediser import RedisStorage
 from ..status import HTTP_200_OK, HTTP_401_UNAUTHORIZED
 from .settings import rester_jwt_settings
+from django_rester.exceptions import ResponseAuthError
 
 redis_db = None
 if isinstance(rester_jwt_settings['USE_REDIS'], int) and not isinstance(rester_jwt_settings['USE_REDIS'], bool):
@@ -90,7 +91,7 @@ class Auth(BaseAuth):
                                        algorithm=self.settings['ALGORITHM']).decode('utf-8'), HTTP_200_OK
             encoded = {'token': token}
         else:
-            encoded, status = ['Authentication failed'], HTTP_401_UNAUTHORIZED
+            raise ResponseAuthError('Authentication failed')
         if status == HTTP_200_OK and self.settings['USE_REDIS'] and token:
             self._push_token(token)
         return encoded, status
