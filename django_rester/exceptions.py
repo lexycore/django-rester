@@ -81,16 +81,27 @@ class BaseAPIViewException(Exception):
     pass
 
 
-class RequestStructureException(BaseAPIViewException):
+class MsgListException(BaseAPIViewException):
+    def __init__(self, messages=None, status=HTTP_400_BAD_REQUEST):
+        self.response_status = status
+        if messages and isinstance(messages, (list, tuple)):
+            self.messages = list(messages)
+        elif isinstance(messages, str):
+            self.messages = [messages]
+        else:
+            self.messages = []
+
+
+class RequestStructureException(MsgListException):
     # raise if request structure is invalid
     pass
 
 
-class ResponseStructureException(RequestStructureException):
+class ResponseStructureException(MsgListException):
     # raise if response structure is invalid
     pass
 
 
-class CustomValidationException(BaseAPIViewException):
+class CustomValidationException(MsgListException):
     # raise if there error in custom validation
     pass

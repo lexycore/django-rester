@@ -7,7 +7,11 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from .decorators import permissions
 from .permission import IsAuthenticated
-from .status import HTTP_200_OK, HTTP_500_INTERNAL_SERVER_ERROR, HTTP_400_BAD_REQUEST
+from .status import (
+    HTTP_200_OK,
+    HTTP_500_INTERNAL_SERVER_ERROR,
+    HTTP_400_BAD_REQUEST
+)
 from .exceptions import (
     RequestStructureException,
     ResponseError,
@@ -34,7 +38,8 @@ class BaseAPIView(View):
 
     @classmethod
     def get_login_field(cls):
-        return cls.auth.settings.get('LOGIN_FIELD') or rester_settings.get('LOGIN_FIELD')
+        return cls.auth.settings.get('LOGIN_FIELD') or rester_settings.get(
+            'LOGIN_FIELD')
 
     @classmethod
     def as_view(cls, **kwargs):
@@ -69,29 +74,37 @@ class BaseAPIView(View):
                 pure_response = str(response)
                 status = HTTP_500_INTERNAL_SERVER_ERROR
                 content_type = 'text/plain'
-            result = HttpResponse(pure_response, content_type=content_type, status=status)
+            result = HttpResponse(pure_response, content_type=content_type,
+                                  status=status)
             result = self._set_cors(result)
         return result
 
-    def _data_validate(self, method, data, fields, exception, exception_message):
+    def _data_validate(self, method, data, fields, exception,
+                       exception_message):
         if fields == {}:
             return data, []
         if self._common_request_response_structure:
             structure = fields.get(method, None)
         else:
             structure = fields
-        if not structure and method not in rester_settings.get('FIELDS_CHECK_EXCLUDED_METHODS', []):
+        if not structure and method not in rester_settings.get(
+                'FIELDS_CHECK_EXCLUDED_METHODS', []):
             raise exception(exception_message)
         structured_data, messages = self._check_json_field(data, structure)
         if not messages:
             try:
                 structured_data = self.custom_validation(structured_data)
-                assert structured_data is not None, '.custom_validation() should return validated structured data'
+                assert structured_data is not None, \
+                    '.custom_validation() should return ' \
+                    'validated structured data'
             except (AssertionError, CustomValidationException) as exc:
                 messages = ['{}'.format(exc)]
-        if fields is self.response_fields and rester_settings.get('SOFT_RESPONSE_VALIDATION', False):
+        if fields is self.response_fields and rester_settings.get(
+                'SOFT_RESPONSE_VALIDATION', False):
             structured_data = self._add_filtered_data(data, structured_data)
-        return structured_data, messages
+        if messages:
+            raise exception(messages, HTTP_500_INTERNAL_SERVER_ERROR)
+        return structured_data
 
     def _add_filtered_data(self, data, structured_data):
         # recursive function, validates response_data by response_fields
@@ -99,8 +112,12 @@ class BaseAPIView(View):
         if isinstance(data, dict):
             for data_key, data_value in data.items():
                 structured_value = structured_data.get(data_key, None)
-                correct_value = structured_value if structured_value else data_value
-                val = self._add_filtered_data(data.get(data_key, None), correct_value)
+                correct_value = (
+                    structured_value
+                    if structured_value
+                    else data_value)
+                val = self._add_filtered_data(data.get(data_key, None),
+                                              correct_value)
                 if val is not None:
                     if value is None:
                         value = {}
@@ -130,7 +147,8 @@ class BaseAPIView(View):
                 messages.append('{} should be a dict instance'.format(key))
             else:
                 for sub_key, sub_structure in structure.items():
-                    val, msg = self._check_json_field(data.get(sub_key, None), sub_structure, sub_key)
+                    val, msg = self._check_json_field(data.get(sub_key, None),
+                                                      sub_structure, sub_key)
                     if val is not None:
                         if value is None:
                             value = {}
@@ -139,7 +157,8 @@ class BaseAPIView(View):
                         messages += msg
         elif isinstance(structure, (list, tuple)):
             if not isinstance(data, (list, tuple)):
-                messages.append('{} should be a list or a tuple instance'.format(key))
+                messages.append(
+                    '{} should be a list or a tuple instance'.format(key))
             else:
                 for item in data:
                     val, msg = self._check_json_field(item, structure[0], key)
@@ -157,9 +176,11 @@ class BaseAPIView(View):
         if method in self._allowed_methods():
             try:
                 if method == 'GET':
-                    request_data = json.loads(json.dumps(request.GET)) if request.GET else {}
+                    request_data = json.loads(
+                        json.dumps(request.GET)) if request.GET else {}
                 elif method in ('POST', 'PUT', 'PATCH'):
-                    request_data = json.loads(request.body.decode('utf-8')) if request.body else {}
+                    request_data = json.loads(
+                        request.body.decode('utf-8')) if request.body else {}
                 elif method in ('OPTIONS', 'HEAD'):
                     request_data = {}
                 if not isinstance(request_data, (dict, list)):
@@ -169,27 +190,32 @@ class BaseAPIView(View):
         return request_data, messages
 
     def custom_validation(self, structured_data):
-        # This method needs for custom validation
-        # Only CustomValidationException must be raised here
+        # Override this method for custom validation
+        # Only CustomValidationException should be raised here
+        assert self  # just to avoid warning about making this staticmethod
         return structured_data or {}
 
     def dispatch(self, request, *args, **kwargs):
         self.request_data, messages = self._set_request_data(request)
-        _response, status = [None], None
+        resp, response_status = [None], None
         if not messages:
             user, messages = self.auth.authenticate(request)
             if not messages and user:
                 request.user = user
-            self.request_data, messages_ = self._data_validate(
-                request.method, self.request_data, self.request_fields, RequestStructureException,
-                'request data structure is not valid, check for documentation or leave blank')
-            if messages_:
-                messages_ = [{"request": messages_}]
-            messages += messages_
+            try:
+                self.request_data = self._data_validate(
+                    request.method, self.request_data, self.request_fields,
+                    RequestStructureException,
+                    'request data structure is not valid, '
+                    'check for documentation or leave blank')
+            except RequestStructureException as err:
+                messages += [{"request": err.messages}]
+                response_status = err.response_status
             method_name = request.method.lower()
             if not messages:
                 if method_name in self.http_method_names:
-                    handler = getattr(self, method_name, self.http_method_not_allowed)
+                    handler = getattr(self, method_name,
+                                      self.http_method_not_allowed)
                 else:
                     handler = self.http_method_not_allowed
 
@@ -197,33 +223,33 @@ class BaseAPIView(View):
                 # if method_name in ('options',):
                 #     _response = handler(request, *args, **kwargs)
                 # else:
-                _response = list(self.try_response(handler, request, *args, **kwargs))
-                messages_ = _response.pop()
-                if messages_:
-                    messages_ = [{"response": messages_}]
-                messages = messages + messages_
-        if messages:
-            _response = [self.set_response_structure(data=_response[0], message=messages),
-                         HTTP_400_BAD_REQUEST]
-        _response = self._set_response(_response)
-        return _response
+                resp, response_status = \
+                    self.try_response(handler, request, *args, **kwargs)
 
-    def _set_cors(self, result):
+        resp = self._set_response((resp, response_status))
+        return resp
+
+    @staticmethod
+    def _set_cors(result):
         cors_access = rester_settings.get('CORS_ACCESS')
-        result['Access-Control-Allow-Headers'] = 'Access-Control-Allow-Origin, Content-Type, Authorization'
+        result[
+            'Access-Control-Allow-Headers'] = 'Access-Control-Allow-Origin, ' \
+                                              'Content-Type, Authorization'
         # TODO: multiple domains in CORS_ACCESS
         """
-        Sounds like the recommended way to do it is to have your server read the Origin header 
-        from the client, compare that to the list of domains you would like to allow, 
-        and if it matches, echo the value of the Origin header back to the client 
-        as the Access-Control-Allow-Origin header in the response.
+        Sounds like the recommended way to do it is to have your server read
+        the Origin header from the client, compare that to the list of domains
+        you would like to allow, and if it matches, echo the value of the 
+        Origin header back to the client as the Access-Control-Allow-Origin 
+        header in the response.
         """
         if isinstance(cors_access, str):
             result['Access-Control-Allow-Origin'] = cors_access
         elif cors_access is True:
             result['Access-Control-Allow-Origin'] = '*'
         else:
-            result['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+            result['Access-Control-Allow-Headers'] = \
+                'Content-Type, Authorization'
         return result
 
     def options(self, request, *args, **kwargs):
@@ -233,10 +259,10 @@ class BaseAPIView(View):
 
     def try_response(self, handler, request, *args, **kwargs):
         message = []
-        messages = []
         success = None
         data = None
-        logger.debug('Request: [{} {}] {}'.format(request.method, request.path, self.request_data))
+        logger.debug('Request: [{} {}] {}'.format(request.method, request.path,
+                                                  self.request_data))
         try:
             success = True
             data = handler(request, *args, **kwargs)
@@ -247,21 +273,25 @@ class BaseAPIView(View):
                 if isinstance(data, tuple) and len(data) == 2:
                     response_status = data[1]
                     data = data[0]
-                data, messages = self._data_validate(request.method, data, self.response_fields,
-                                                     ResponseStructureException,
-                                                     'response data structure is not valid, check for documentation or leave blank')
-        except ResponseError as err:
+                data = self._data_validate(
+                    request.method, data, self.response_fields,
+                    ResponseStructureException,
+                    'response data structure is not valid, '
+                    'check for documentation or leave blank')
+        except (ResponseStructureException, ResponseError) as err:
             logger.exception('Error in handler for [{}]'.format(request.path))
             response_status = err.response_status
-            if isinstance(err, ResponseBadRequestMsgList):
+            if isinstance(err, (ResponseBadRequestMsgList,
+                                ResponseStructureException)):
+                response_status = err.response_status
                 message = err.messages
             elif isinstance(err, (ResponseOkMessage, ResponseFailMessage)):
                 response_status = err.response_status
                 message = err.message
                 data = err.data
-                success = isinstance(err, ResponseOkMessage)
             else:
                 message = '{}'.format(err)
+            success = isinstance(err, ResponseOkMessage)
         except Exception as err:
             logger.exception('Error in handler for [{}]'.format(request.path))
             message = '{}'.format(err)
@@ -270,16 +300,18 @@ class BaseAPIView(View):
             success = 200 <= response_status <= 299
         _response = self.set_response_structure(data, success, message)
         logger.debug('Response: [{}] {}'.format(response_status, _response))
-        return _response, response_status, messages
+        return _response, response_status
 
-    def set_response_structure(self, data=None, success=True, message=None):
+    @staticmethod
+    def set_response_structure(data=None, success=True, message=None):
         if isinstance(data, HttpResponse):
             _response = data
         else:
             response_structure = rester_settings.get('RESPONSE_STRUCTURE', {})
             if response_structure:
+                message = message and [{"response": message}] or []
                 res_data = {'success': success,
-                            'message': message or [],
+                            'message': message,
                             'data': data,
                             }
                 str_data = dict(response_structure)
@@ -293,9 +325,11 @@ class BaseAPIView(View):
 
 
 class Login(BaseAPIView):
-    response_fields = {"POST": {"token": JSONField(required=True, field_type=str)}}
-    request_fields = {"POST": {BaseAPIView.get_login_field(): JSONField(required=True, field_type=str),
-                               "password": JSONField(required=True, field_type=str)}}
+    response_fields = {
+        "POST": {"token": JSONField(required=True, field_type=str)}}
+    request_fields = {"POST": {
+        BaseAPIView.get_login_field(): JSONField(required=True, field_type=str),
+        "password": JSONField(required=True, field_type=str)}}
 
     def post(self, request):
         data, status = self.auth.login(request, self.request_data)

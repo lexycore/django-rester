@@ -348,3 +348,15 @@ methods (public), with normal usage, you won't need them in your code:
 **- BaseApiView is on active development stage, other attributes and methods could be added soon
 
 ***- automatic response structure build - one of the nearest tasks
+
+
+### Installation notes
+
+
+##### pycurl (Mac OS)
+
+```bash
+brew remove curl
+brew install curl-openssl
+pip install --no-cache-dir --global-option=build_ext --global-option="-L/usr/local/opt/openssl/lib" --global-option="-I/usr/local/opt/openssl/include" --compile --install-option="--with-openssl" pycurl
+```
