@@ -80,7 +80,7 @@ class BaseAPIView(View):
         return result
 
     def _data_validate(self, method, data, fields, exception,
-                       exception_message):
+                       exception_message, msg_key='validate'):
         if fields == {}:
             return data, []
         if self._common_request_response_structure:
@@ -103,6 +103,7 @@ class BaseAPIView(View):
                 'SOFT_RESPONSE_VALIDATION', False):
             structured_data = self._add_filtered_data(data, structured_data)
         if messages:
+            messages = [exception_message, {msg_key: messages}]
             raise exception(messages, HTTP_500_INTERNAL_SERVER_ERROR)
         return structured_data
 
@@ -197,7 +198,7 @@ class BaseAPIView(View):
 
     def dispatch(self, request, *args, **kwargs):
         self.request_data, messages = self._set_request_data(request)
-        resp, response_status = [None], None
+        resp, response_status = [], None
         if not messages:
             user, messages = self.auth.authenticate(request)
             if not messages and user:
@@ -207,9 +208,11 @@ class BaseAPIView(View):
                     request.method, self.request_data, self.request_fields,
                     RequestStructureException,
                     'request data structure is not valid, '
-                    'check for documentation or leave blank')
+                    'check for documentation',
+                    'request'
+                )
             except RequestStructureException as err:
-                messages += [{"request": err.messages}]
+                messages = err.messages
                 response_status = err.response_status
             method_name = request.method.lower()
             if not messages:
@@ -225,7 +228,7 @@ class BaseAPIView(View):
                 # else:
                 resp, response_status = \
                     self.try_response(handler, request, *args, **kwargs)
-        else:
+        if not resp:
             resp = self.set_response_structure(
                 data=None, success=False, message=messages)
             response_status = HTTP_400_BAD_REQUEST
@@ -280,7 +283,9 @@ class BaseAPIView(View):
                     request.method, data, self.response_fields,
                     ResponseStructureException,
                     'response data structure is not valid, '
-                    'check for documentation or leave blank')
+                    'check for documentation or leave blank',
+                    'response'
+                )
         except (ResponseStructureException, ResponseError) as err:
             logger.exception('Error in handler for [{}]'.format(request.path))
             response_status = err.response_status
@@ -301,7 +306,7 @@ class BaseAPIView(View):
             response_status = HTTP_500_INTERNAL_SERVER_ERROR
         if success is not None:
             success = 200 <= response_status <= 299
-        message = message and [{"response": message}] or []
+        # message = message and [{"response": message}] or []
         _response = self.set_response_structure(data, success, message)
         logger.debug('Response: [{}] {}'.format(response_status, _response))
         return _response, response_status
