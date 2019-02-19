@@ -3,12 +3,15 @@ import jwt
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from django_rediser import RedisStorage
-from ..status import HTTP_200_OK, HTTP_401_UNAUTHORIZED
+from ..status import HTTP_200_OK
 from .settings import rester_jwt_settings
 from django_rester.exceptions import ResponseAuthError
 
 redis_db = None
-if isinstance(rester_jwt_settings['USE_REDIS'], int) and not isinstance(rester_jwt_settings['USE_REDIS'], bool):
+if (
+        isinstance(rester_jwt_settings['USE_REDIS'], int)
+        and not isinstance(rester_jwt_settings['USE_REDIS'], bool)
+):
     redis_db = rester_jwt_settings['USE_REDIS']
 
 
@@ -20,8 +23,10 @@ class BaseAuth:
     @classmethod
     def _set_payload(cls, user):
         exp = datetime.datetime.timestamp(
-            datetime.datetime.now() + datetime.timedelta(seconds=cls.settings['EXPIRE']))
-        payload = {item: getattr(user, item, None) for item in cls.settings['PAYLOAD_LIST'] if
+            datetime.datetime.now() + datetime.timedelta(
+                seconds=cls.settings['EXPIRE']))
+        payload = {item: getattr(user, item, None) for item in
+                   cls.settings['PAYLOAD_LIST'] if
                    hasattr(user, item)}
         payload.update({"exp": exp})
         return payload
@@ -54,12 +59,14 @@ class BaseAuth:
         return user
 
     def _get_user_data(self, token):
-        is_member, data, exp_date, user_data, user, messages = True, None, None, {}, None, []
+        is_member, data, exp_date = True, None, None
+        user_data, user, messages = {}, None, []
         if self.settings['USE_REDIS']:
             is_member = self._is_member(token)
         if is_member:
             try:
-                data = jwt.decode(token, self.settings['SECRET'], algorithms=[self.settings['ALGORITHM']])
+                data = jwt.decode(token, self.settings['SECRET'],
+                                  algorithms=[self.settings['ALGORITHM']])
             except jwt.DecodeError:
                 messages.append('Wrong authentication token')
             except jwt.ExpiredSignatureError:
@@ -67,8 +74,13 @@ class BaseAuth:
 
             if data:
                 exp_date = data.pop('exp', None)
-                user_data = {item: data.get(item, None) for item in self.settings['PAYLOAD_LIST']}
-            if exp_date and user_data and exp_date > datetime.datetime.now().timestamp():
+                user_data = {item: data.get(item, None) for item in
+                             self.settings['PAYLOAD_LIST']}
+            if (
+                    exp_date
+                    and user_data
+                    and exp_date > datetime.datetime.now().timestamp()
+            ):
                 user = self._get_user(**user_data)
         else:
             messages.append('Authentication token is not valid or expired')
@@ -78,7 +90,6 @@ class BaseAuth:
 
 class Auth(BaseAuth):
     def login(self, request, request_data):
-        token = None
         login = request_data.get(self.settings['LOGIN_FIELD'], None)
         password = request_data.get('password', '')
         if login is not None:
@@ -88,7 +99,9 @@ class Auth(BaseAuth):
         if user:
             payload = self._set_payload(user)
             token, status = jwt.encode(payload, self.settings['SECRET'],
-                                       algorithm=self.settings['ALGORITHM']).decode('utf-8'), HTTP_200_OK
+                                       algorithm=self.settings[
+                                           'ALGORITHM']).decode(
+                'utf-8'), HTTP_200_OK
             encoded = {'token': token}
         else:
             raise ResponseAuthError('Authentication failed')

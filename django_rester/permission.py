@@ -14,8 +14,11 @@ class IsAuthenticated(BasePermission):
         self.check, self.message = self._is_authenticated()
 
     def _is_authenticated(self):
-        check = self.request.user.is_authenticated and not self.request.user.is_anonymous and self.request.user.is_active
-        messages = {'SUCCESS': ['Auth OK'], 'FAIL': ['Required credentials are not provided']}
+        check = (self.request.user.is_authenticated
+                 and not self.request.user.is_anonymous
+                 and self.request.user.is_active)
+        messages = {'SUCCESS': ['Auth OK'],
+                    'FAIL': ['Required credentials are not provided']}
         message = self._get_message(check, messages)
         return check, message
 
@@ -27,7 +30,9 @@ class IsAdmin(BasePermission):
 
     def _is_admin(self):
         check = self.request.user.is_superuser and self.request.user.is_active
-        messages = {'SUCCESS': ['Auth OK'], 'FAIL': ['Required credentials are not provided or user is not superuser']}
+        messages = {'SUCCESS': ['Auth OK'],
+                    'FAIL': ['Required credentials are not provided '
+                             'or user is not superuser']}
         message = self._get_message(check, messages)
         return check, message
 

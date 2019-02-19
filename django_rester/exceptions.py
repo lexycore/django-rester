@@ -34,7 +34,8 @@ class ResponseOkMessage(ResponseError):
 
 
 class ResponseFailMessage(ResponseError):
-    def __init__(self, message='', data=None, status=HTTP_500_INTERNAL_SERVER_ERROR):
+    def __init__(self, message='', data=None,
+                 status=HTTP_500_INTERNAL_SERVER_ERROR):
         self.message = message
         self.data = data
         self.response_status = status

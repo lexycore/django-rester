@@ -1,12 +1,17 @@
 from django.apps import apps
 from django.db.models.base import ModelBase
-from .exceptions import JSONFieldModelTypeError, JSONFieldModelError, JSONFieldValueError
+from .exceptions import (
+    JSONFieldModelTypeError,
+    JSONFieldModelError,
+    JSONFieldValueError
+)
 
 
 class JSONField:
     types = (int, float, str, bool)
 
-    def __init__(self, field_type=None, required=False, default=None, blank=True, model=None, field=''):
+    def __init__(self, field_type=None, required=False, default=None,
+                 blank=True, model=None, field=''):
         if field_type not in self.types:
             raise JSONFieldValueError('field_type should be one of: {}'.format(
                 str(self.types).replace("<class '", '').replace("'>", '')))
@@ -62,8 +67,42 @@ class JSONField:
                 app, _model = model.split('.')
                 model = apps.get_model(app, _model)
             except (ValueError, LookupError):
-                raise JSONFieldModelError(
-                    'model name does not match pattern <application>.<Model> or model does not exist')
+                raise JSONFieldModelError('model name does not match pattern '
+                                          '<application>.<Model> or model '
+                                          'does not exist')
             return model
         else:
-            raise JSONFieldModelTypeError('wrong model type (NoneType, string or ModelBase allowed)')
+            raise JSONFieldModelTypeError('wrong model type (NoneType, string '
+                                          'or ModelBase allowed)')
+
+
+class String(JSONField):
+    def __init__(self,
+                 required=False, default=None,
+                 blank=True, model=None, field=''):
+        super().__init__(field_type=str, required=required, default=default,
+                         blank=blank, model=model, field=field)
+
+
+class Int(JSONField):
+    def __init__(self,
+                 required=False, default=None,
+                 blank=True, model=None, field=''):
+        super().__init__(field_type=int, required=required, default=default,
+                         blank=blank, model=model, field=field)
+
+
+class Float(JSONField):
+    def __init__(self,
+                 required=False, default=None,
+                 blank=True, model=None, field=''):
+        super().__init__(field_type=float, required=required, default=default,
+                         blank=blank, model=model, field=field)
+
+
+class Bool(JSONField):
+    def __init__(self,
+                 required=False, default=None,
+                 blank=True, model=None, field=''):
+        super().__init__(field_type=bool, required=required, default=default,
+                         blank=blank, model=model, field=field)

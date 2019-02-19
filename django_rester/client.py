@@ -5,6 +5,8 @@ import urllib.parse as urllib_parse
 from urllib.parse import urljoin
 from io import BytesIO
 
+from django_rester.exceptions import ResterException
+
 logger = logging.getLogger('django_rester.client')
 
 DEFAULT_OPTIONS = {
@@ -14,7 +16,7 @@ DEFAULT_OPTIONS = {
     'CONNECTTIMEOUT': 5,
     'TIMEOUT': 8,
     'COOKIEFILE': '',
-    'FAILONERROR': True,
+    'FAILONERROR': 0,
 }
 
 '''A high-level interface to the pycurl extension'''
@@ -97,9 +99,14 @@ class Curl:
         self.payload_io.seek(0)
         self.payload_io.truncate()
         self.hdr = ""
-        self.handle.perform()
+        try:
+            self.handle.perform()
+        except ResterException:
+            pass
         self.payload = self.payload_io.getvalue()
-        return self.payload
+        return (self.payload,
+                self.handle.getinfo(pycurl.RESPONSE_CODE),
+                self.handle.errstr())
 
     def get(self, url="", params=None):
         """Ship a GET request for a specified URL, capture the response."""
@@ -108,11 +115,12 @@ class Curl:
         self.set_option(pycurl.HTTPGET, 1)
         return self.__request(url)
 
-    def post(self, cgi, params):
+    def post(self, url="", params=None):
         """Ship a POST request to a specified CGI, capture the response."""
         self.set_option(pycurl.POST, 1)
-        self.set_option(pycurl.POSTFIELDS, urllib_parse.urlencode(params))
-        return self.__request(cgi)
+        if params:
+            self.set_option(pycurl.POSTFIELDS, urllib_parse.urlencode(params))
+        return self.__request(url)
 
     def body(self):
         """Return the body from the last response."""
@@ -193,26 +201,31 @@ class ResterClient(Curl):
                 self.set_option(opt_key, value)
 
     def get(self, url='', params=None):
-        response = super().get(url, params)
-        return self._response_decode(response)
+        response, response_code, msg = super().get(url, params)
+        return self._response_decode(response, response_code, msg)
 
     def post(self, url='', params=None, json=None):
         if json:
             body = json_lib.dumps(json)
             self.set_option(pycurl.POSTFIELDS, body)
-        response = super().post(url, params)
-        return self._response_decode(response)
+        response, response_code, msg = super().post(url, params)
+        return self._response_decode(response, response_code, msg)
 
     @staticmethod
-    def _response_decode(response):
+    def _response_decode(response, response_code=200, message=''):
+        resp_type = None
+        data = None
         if response:
             try:
-                response = {'type': 'json',
-                            'data': json_lib.loads(isinstance(response, bytes)
-                                                   and response.decode('utf-8')
-                                                   or response)
-                            }
+                data = json_lib.loads(isinstance(response, bytes)
+                                      and response.decode('utf-8')
+                                      or response)
+                resp_type = 'json'
             except json_lib.decoder.JSONDecodeError:
-                response = {'type': 'text',
-                            'data': response}
-        return response
+                data = response
+                resp_type = 'text'
+
+        return {'type': resp_type,
+                'message': message and [message] or [],
+                'response_code': response_code,
+                'data': data}

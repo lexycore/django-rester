@@ -225,7 +225,10 @@ class BaseAPIView(View):
                 # else:
                 resp, response_status = \
                     self.try_response(handler, request, *args, **kwargs)
-
+        else:
+            resp = self.set_response_structure(
+                data=None, success=False, message=messages)
+            response_status = HTTP_400_BAD_REQUEST
         resp = self._set_response((resp, response_status))
         return resp
 
@@ -298,6 +301,7 @@ class BaseAPIView(View):
             response_status = HTTP_500_INTERNAL_SERVER_ERROR
         if success is not None:
             success = 200 <= response_status <= 299
+        message = message and [{"response": message}] or []
         _response = self.set_response_structure(data, success, message)
         logger.debug('Response: [{}] {}'.format(response_status, _response))
         return _response, response_status
@@ -309,7 +313,7 @@ class BaseAPIView(View):
         else:
             response_structure = rester_settings.get('RESPONSE_STRUCTURE', {})
             if response_structure:
-                message = message and [{"response": message}] or []
+                message = message and message or []
                 res_data = {'success': success,
                             'message': message,
                             'data': data,
