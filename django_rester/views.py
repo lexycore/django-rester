@@ -82,7 +82,7 @@ class BaseAPIView(View):
     def _data_validate(self, method, data, fields, exception,
                        exception_message, msg_key='validate'):
         if fields == {}:
-            return data, []
+            return data
         if self._common_request_response_structure:
             structure = fields.get(method, None)
         else:
