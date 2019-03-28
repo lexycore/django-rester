@@ -22,7 +22,7 @@ from .exceptions import (
     CustomValidationException,
 )
 
-from .fields import JSONField
+from . import fields
 from .settings import rester_settings
 
 logger = logging.getLogger('django_rester')
@@ -38,8 +38,10 @@ class BaseAPIView(View):
 
     @classmethod
     def get_login_field(cls):
-        return cls.auth.settings.get('LOGIN_FIELD') or rester_settings.get(
-            'LOGIN_FIELD')
+        return (
+                cls.auth.settings.get('LOGIN_FIELD') or
+                rester_settings.get('LOGIN_FIELD')
+        )
 
     @classmethod
     def as_view(cls, **kwargs):
@@ -140,7 +142,7 @@ class BaseAPIView(View):
         value = None
         if messages is None:
             messages = []
-        if isinstance(structure, JSONField):
+        if isinstance(structure, fields.JSONField):
             value, msg = structure.validate(key, data)
             messages += msg
         elif isinstance(structure, dict):
@@ -334,11 +336,13 @@ class BaseAPIView(View):
 
 
 class Login(BaseAPIView):
-    response_fields = {
-        "POST": {"token": JSONField(required=True, field_type=str)}}
-    request_fields = {"POST": {
-        BaseAPIView.get_login_field(): JSONField(required=True, field_type=str),
-        "password": JSONField(required=True, field_type=str)}}
+    request_fields = {
+        "POST": {
+            BaseAPIView.get_login_field(): fields.String(required=True),
+            "password": fields.String(required=True)
+        }
+    }
+    response_fields = {"POST": {"token": fields.String(required=True)}}
 
     def post(self, request):
         data, status = self.auth.login(request, self.request_data)

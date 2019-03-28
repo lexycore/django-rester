@@ -82,6 +82,8 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
+APPEND_SLASH = True
+
 DJANGO_RESTER = {
     'RESPONSE_STRUCTURE': True,
     'CORS_ACCESS': True,
